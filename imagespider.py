@@ -21,7 +21,7 @@ class IMAGE_SPIDER:
         return feats
         
            
-    def extract_raw_feature(self,imgdir,samplepath, pcapath):
+    def extract_raw_feature(self,imgdir):
         #1--feature extraction
         feats = []
         for rdirs, pdirs, names in os.walk(imgdir):
@@ -45,29 +45,19 @@ class IMAGE_SPIDER:
 
         #3--pca
         pca = PCA(0.98)
+        print 'pca input dim = ', samples.shape[1]
         samples = pca.fit_transform(samples)
+        print 'pca output dim = ', samples.shape[1]
 
+        #4--return
+        return (pca, samples)
 
-        #4--save model
-        with open(samplepath,'w') as f:
-            pickle.dump(samples,f)
-
-        with open(pcapath, 'w') as f:
-            pickle.dump(pca, f)
-
-    def create_bow_dict(self, samplepath, pcapath, dictpath):
-        with open(samplepath,'r') as f:
-            samples = pickle.load(f)
-        with open(pcapath,'r') as f:
-            pca = pickle.load(f)
-
+    def create_bow_dict(self, samples, pca):
         clusternum = 50
         print 'run kmeans with cluster = ', clusternum
-        bowdict = MiniBatchKMeans(clusternum,verbose=True).fit(samples)
+        bowdict = MiniBatchKMeans(clusternum,verbose=False).fit(samples)
+        return bowdict
 
-        with open(dictpath, 'w') as f:
-            pickle.dump(bowdict, f)
-        print 'dict is done!'
 
     def create_bow_feature_single(self, imgpath, pca, bowdict):
         #1--raw feature
@@ -133,14 +123,8 @@ class IMAGE_SPIDER:
         dictpath = rootdir+"dict.txt"
 
         #create pca,dict models
-        self.extract_raw_feature(traindir,samplepath,pcapath)
-        self.create_bow_dict(samplepath, pcapath,dictpath)
-
-        with open(pcapath, 'r') as f:
-            pca = pickle.load(f)
-
-        with open(dictpath, 'r') as f:
-            bowdict = pickle.load(f)
+        pca,samples = self.extract_raw_feature(traindir)
+        bowdict = self.create_bow_dict(samples, pca)
 
         #create knn models
         knn = self.create_knn_model(traindir, pca, bowdict)
