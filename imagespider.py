@@ -23,6 +23,7 @@ class IMAGE_SPIDER:
            
     def extract_raw_feature(self,imgdir):
         #1--feature extraction
+        print 'load samples from ', imgdir
         feats = []
         for rdirs, pdirs, names in os.walk(imgdir):
             for name in names:
@@ -31,7 +32,7 @@ class IMAGE_SPIDER:
                     fname = os.path.join(rdirs, name)
                     feat = self.extract_raw_feature_single(fname)
                     feats.extend(feat)
-                    print sname
+#                    print sname
 
         #2--list2matrix
         samplenum = len(feats)
@@ -53,9 +54,9 @@ class IMAGE_SPIDER:
         return (pca, samples)
 
     def create_bow_dict(self, samples, pca):
-        clusternum = 50
-        print 'run kmeans with cluster = ', clusternum
-        bowdict = MiniBatchKMeans(clusternum,verbose=False).fit(samples)
+        clusternum = 5000
+        print 'run kmeans with cluster = ', clusternum, 'sample num = ', samples.shape[0]
+        bowdict = MiniBatchKMeans(clusternum,batch_size = clusternum, verbose=False).fit(samples)
         return bowdict
 
 
