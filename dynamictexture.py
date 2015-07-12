@@ -36,12 +36,14 @@ class DYNAMIC_TEXTURE:
         return (Y,frameshape)
 
     def create_dynamic_textures(self,Y,n,nv):
+        #n : reduced dimension for C and X
+        #nv : reduced dimension for V
         Y = Y.transpose() #convert to featurenum * samplenum
         tau = Y.shape[1]
         Ymean = np.reshape(np.mean(Y, 1), (-1,1))
         u,s,v = svd(Y - np.tile(Ymean,(1,Y.shape[1])), 0)
-        C = u #formula 9
-        X = np.dot(np.diag(s), v) #formula 9
+        C = u[:,0:n] #formula 9
+        X = np.dot(np.diag(s)[0:n,0:n], v[:,0:n].transpose()) #formula 9
         x0 = X[:,0] 
         A = np.dot(X[:,1:] , pinv(X[:,0:tau-1]) ) #formula 10
         V = X[:,1:] - np.dot(A, X[:,0:tau-1])
@@ -65,14 +67,17 @@ class DYNAMIC_TEXTURE:
 
     def run(self, framedir,framerange, rebuilddir):
         Y,fshape = self.load_frames(framedir, framerange)
-        x0, Ymean, A, B, C = self.create_dynamic_textures(Y, 9, 8)
+        x0, Ymean, A, B, C = self.create_dynamic_textures(Y, 4, 8)
         if len(rebuilddir) > 1:
-            I = self.rebuild(x0, Ymean, A, B,C,9)
+            I = self.rebuild(x0, Ymean, A, B,C,40)
             for k in range(I.shape[1]):
                 y = I[:,k]
                 y = np.uint8(y)
                 y = np.reshape(y, fshape)
-                outpath = rebuilddir + '%.3d.jpg'%k
+                h,w = y.shape
+                scale = 2
+                y = cv2.resize(y, (w*scale, h*scale))
+                outpath = rebuilddir + '%.3d.jpg'%(1+k)
                 cv2.imwrite(outpath, y)
 
 if __name__=='__main__':
