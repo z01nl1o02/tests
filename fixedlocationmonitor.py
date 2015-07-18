@@ -139,13 +139,9 @@ class MONITOR:
         return s
              
 
- 
-    def calc_anomaly_probability(self, queryhist):
-        if len(self.hists) < self.histcapacity and self.histcapacity > 0:
-             return -1.0
 
-        #most-likely and ambiguity test
-        [y,x] = np.nonzero(queryhist == queryhist.max())
+    def most_likely_and_ambiguity_test(self, hist):
+        [y,x] = np.nonzero(hist == hist.max())
         y = y[0]
         x = x[0]
         if type(y) is np.ndarray:
@@ -156,25 +152,39 @@ class MONITOR:
         if self.b_speed_mode == 0:
             T = 20 #degree
             s = 0
-            for k in range(queryhist.shape[0]):
-                s += queryhist[k,0] * np.abs(k - yml)
-            s *= 360 / queryhist.shape[0]
+            for k in range(hist.shape[0]):
+                s += hist[k,0] * np.abs(k - yml)
+            s *= 360 / hist.shape[0]
             if s >= T:
-                return -1.0
+                return (0,yml) #bad observation
         else:
             T = 1.5 
             s = 0
-            for k in range(queryhist.shape[0]):
-                s += queryhist[k,0] * np.abs(k - yml)
-            s *= self.nbr_radius * 1.0 / (queryhist.shape[0] - 1)
+            for k in range(hist.shape[0]):
+                s += hist[k,0] * np.abs(k - yml)
+            s *= self.nbr_radius * 1.0 / (hist.shape[0] - 1)
             if s >= T:
-                return -1.0
+                return (0,yml)
+
+        return (1,yml)
+
+
+ 
+    def calc_anomaly_probability(self, queryhist):
+        if len(self.hists) < self.histcapacity and self.histcapacity > 0:
+             return -1.0
+
+        #most-likely and ambiguity test
+        ret,yml = self.most_likely_and_ambiguity_test(queryhist)
+        if ret == 0:
+            return -1.0
 
         #get reference histogram
         refhist = np.zeros(queryhist.shape)
         for h in self.hists:
             refhist += h
         refhist /= len(self.hists)         
+
         return 1 - refhist[yml,0]
      
     def check_add_new_frame(self, f0, f1):
@@ -183,9 +193,10 @@ class MONITOR:
         hist = self.calc_histogram(probmap)
         prob = self.calc_anomaly_probability(hist)
 
-        if len(self.hists) >= self.histcapacity and self.histcapacity > 0:
-            self.hists.pop() #delete the last one      
-        self.hists.insert(0, hist) #insert the header
+        if prob >= 0:
+            if len(self.hists) >= self.histcapacity and self.histcapacity > 0:
+                self.hists.pop() #delete the last one      
+            self.hists.insert(0, hist) #insert the header
 
         if prob > 0.8:
             return 1 #alarmed
@@ -198,23 +209,32 @@ class MONITOR:
     def add_frame(self, f0, f1):
         probmap = self.calc_ssd(f0,f1)
         hist = self.calc_histogram(probmap)
+
+        #only insert good observation
+        ret, yml = self.most_likely_and_ambiguity_test(hist)
+        if ret == 0:
+            return 
+
         if len(self.hists) >= self.histcapacity and self.histcapacity > 0:
             self.hists.pop() #delete the last one      
         self.hists.insert(0, hist) #insert the header
 
 
     def check_frame(self, f0, f1):
+
+        if len(self.hists) < 1:
+            return -1
+
         probmap = self.calc_ssd(f0,f1)
         hist = self.calc_histogram(probmap)
         prob = self.calc_anomaly_probability(hist)
 
-        if prob > 0.8:
+        if prob > 0.9:
             return 1 #alarmed
         elif prob < 0:
             return -1
         else:
             return 0
-
 
 
 
@@ -366,7 +386,7 @@ if __name__ == "__main__":
                 pickle.dump(monitors, f)
         run_predict(rootdir+'Test/Test001/', 'out/', monitors)
     elif 1:
-        with open('model32.txt', 'r') as f:
+        with open('model18.txt', 'r') as f:
             monitors = pickle.load(f)
 
         if 0:
@@ -385,7 +405,7 @@ if __name__ == "__main__":
                 img[top:bottom, left:right] = np.uint8(m * 255.0 / m1)
             cv2.imwrite('test.1.jpg', img)
 
-        run_predict(rootdir+'Test/Test004/', 'out/', monitors)
+        run_predict(rootdir+'Test/Test020/', 'out/', monitors)
 
     else:
         monitors = run_online_train(rootdir+'Test/Test025/', 'out/')
