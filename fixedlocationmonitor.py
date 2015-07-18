@@ -1,8 +1,14 @@
 import os,sys,pdb,cv2,math,pickle
 import numpy as np
+
 """
+papers:
+
 Robust Real-Time Unusual Event Detection Using Multiple Fixed-Location Monitors"
 by Amit Adam, Ehud Rivlin, llan Shimshoni, David Reinitz
+
+dataset:
+UCSD_Anomaly Dataset
 """
 
 class MONITOR:
@@ -79,8 +85,8 @@ class MONITOR:
             for x in range(probmap.shape[1]):
                 if probmap[y,x] < 0.0001:
                     continue 
-                dx = np.int64(x - cx)
-                dy = np.int64(y - cy)
+                dx = np.abs(x - cx)
+                dy = np.abs(y - cy)
                 d = np.maximum( dx, dy )
                 d = np.int64(d/binsize)
                 if d >= binnum:
@@ -225,8 +231,8 @@ def scan_dir_for(dirname,objext):
 
 def setup_monitors(img):
     results = []
-    nbr_radius = 16
-    ssd_radius = 16
+    nbr_radius = 8
+    ssd_radius = 8
     frameshape = img.shape
     b_speed_mode  = 1
     for y in range(nbr_radius + ssd_radius, img.shape[0] - nbr_radius - ssd_radius, 2 * nbr_radius):
@@ -360,7 +366,7 @@ if __name__ == "__main__":
                 pickle.dump(monitors, f)
         run_predict(rootdir+'Test/Test001/', 'out/', monitors)
     elif 1:
-        with open('model33.txt', 'r') as f:
+        with open('model32.txt', 'r') as f:
             monitors = pickle.load(f)
 
         if 0:
