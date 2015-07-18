@@ -32,15 +32,6 @@ class MONITOR:
     def get_history_length(self):
         return len(self.hists)     
       
-    def save(self,filename):
-        with open(filename, 'w') as f:
-            pickle.dump( (self.x, self.y, self.left, self.top, self.right, self.bottom, self.sdd_radius, self.nbr_radius, self.ssd_a, self.ssd_k, self.hists, self.b_speed_mode),f)
-
-    def load(self,filename):
-        with open(filename,'r') as f:
-            self.x, self.y, self.left, self.top, self.right, self.bottom, self.sdd_radius, self.nbr_radius, self.ssd_a, self.ssd_k, self.hists, self.b_speed_mode = pickle.load(f)
-
-
     def calc_ssd(self, f0, f1):
         winsize = (2 * self.ssd_radius + 1) * (2 * self.ssd_radius + 1) * 1.0
         probmap = np.zeros((self.bottom - self.top, self.right - self.left))
@@ -126,6 +117,7 @@ class MONITOR:
         else:
             return self.histogram_on_orientation(probmap)
 
+    #a method to show monitor inforamtion stored
     def calc_histogram_mean(self):
         if len(self.hists) < self.histcapacity and self.histcapacity > 0:
             return 0.0
@@ -141,7 +133,7 @@ class MONITOR:
         return s
              
 
-    
+ 
     def calc_anomaly_probability(self, queryhist):
         if len(self.hists) < self.histcapacity and self.histcapacity > 0:
              return -1.0
@@ -177,7 +169,7 @@ class MONITOR:
         for h in self.hists:
             refhist += h
         refhist /= len(self.hists)         
-        return 1 - refhist[yml]
+        return 1 - refhist[yml,0]
      
     def check_add_new_frame(self, f0, f1):
 
@@ -210,7 +202,7 @@ class MONITOR:
         hist = self.calc_histogram(probmap)
         prob = self.calc_anomaly_probability(hist)
 
-        if prob > 0.9:
+        if prob > 0.8:
             return 1 #alarmed
         elif prob < 0:
             return -1
@@ -233,8 +225,8 @@ def scan_dir_for(dirname,objext):
 
 def setup_monitors(img):
     results = []
-    nbr_radius = 8
-    ssd_radius = 2
+    nbr_radius = 16
+    ssd_radius = 16
     frameshape = img.shape
     b_speed_mode  = 1
     for y in range(nbr_radius + ssd_radius, img.shape[0] - nbr_radius - ssd_radius, 2 * nbr_radius):
@@ -278,8 +270,6 @@ def run_online_train(imgdir,outdir):
 
         alarms = [0 for k in range(len(monitors))]
         for k in range(len(monitors)):
-            if idx > 20 and k > len(monitors) * 3 / 4 and 0:
-                pdb.set_trace()
             alarms[k] = monitors[k].check_add_new_frame(f0,f1)
 
         if 0:
@@ -316,13 +306,21 @@ def run_online_train(imgdir,outdir):
 def run_predict(traindir, outdir, monitors):
 
     filenames = scan_dir_for(traindir, '.tif')
-     
+    
     for idx in range(len(filenames)):
         sname, fname = filenames[idx]
         f1 = cv2.imread(fname, 0)
         if idx == 0:
             f0 = f1
             continue
+
+        if 0:
+            img = cv2.cvtColor(f1, cv2.COLOR_GRAY2RGB)
+            for k in range(len(monitors)):
+                x,y = monitors[k].get_centerxy()
+                cv2.putText(img, '%d'%k ,(x,y), cv2.FONT_HERSHEY_COMPLEX,0.2,(255,0,0))
+            cv2.imwrite('test.2.jpg', img)
+
         alarmed = [0 for k in range(len(monitors))]
         for k in range(len(monitors)):
             alarmed[k] = monitors[k].check_frame(f0,f1)
@@ -355,14 +353,14 @@ if __name__ == "__main__":
         rootdir = f.readline().strip()
     if 0:
         monitors = run_train(rootdir+'Train/Train001/', [])
-        for k in range(2, 4):
+        for k in range(2, 34):
             traindir = rootdir + 'Train/Train%.3d/'%k
             monitors = run_train(traindir,monitors)
-        with open('model.txt', 'w') as f:
-            pickle.dump(monitors, f)
+            with open('model%d.txt'%k, 'w') as f:
+                pickle.dump(monitors, f)
         run_predict(rootdir+'Test/Test001/', 'out/', monitors)
     elif 1:
-        with open('model.txt', 'r') as f:
+        with open('model33.txt', 'r') as f:
             monitors = pickle.load(f)
 
         if 0:
@@ -381,10 +379,10 @@ if __name__ == "__main__":
                 img[top:bottom, left:right] = np.uint8(m * 255.0 / m1)
             cv2.imwrite('test.1.jpg', img)
 
-        run_predict(rootdir+'Test/Test001/', 'out/', monitors)
+        run_predict(rootdir+'Test/Test004/', 'out/', monitors)
 
     else:
-        monitors = run_online_train(rootdir+'Test/Test001/', 'out/')
+        monitors = run_online_train(rootdir+'Test/Test025/', 'out/')
 
 
     
