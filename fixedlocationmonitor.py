@@ -18,7 +18,7 @@ class MONITOR:
         self.ssd_radius = ssd_radius
         self.ssd_a = 1 / 1.0
         self.ssd_k = 1.0
-        self.histcapacity = 10
+        self.histcapacity = -1 #split train and predict
         self.hists = []
         self.nbr_radius = nbr_radius
         self.b_speed_mode = b_speed_mode
@@ -28,7 +28,9 @@ class MONITOR:
  
     def get_region(self):
         return (self.left, self.top, self.right, self.bottom) 
-     
+
+    def get_history_length(self):
+        return len(self.hists)     
       
     def save(self,filename):
         with open(filename, 'w') as f:
@@ -124,24 +126,24 @@ class MONITOR:
         else:
             return self.histogram_on_orientation(probmap)
 
-    def calc_histogram_peak(self):
-        if len(self.hists) < 1:
+    def calc_histogram_mean(self):
+        if len(self.hists) < self.histcapacity and self.histcapacity > 0:
             return 0.0
-
         refhist = np.zeros(self.hists[0].shape)
         for h in self.hists:
             refhist += h
-        refhist /= len(self.hists)       
-        m1 = refhist.max()
+        refhist /= len(self.hists)      
+        
+        s = 0
         for k in range(refhist.shape[0]):
-            if refhist[k] == m1:
-                break
-        return np.uint8(k * 255.0 / refhist.shape[0])
+            s += (k + 1) * refhist[k,0]
+        s = s * 1.0 / refhist.shape[0]
+        return s
              
 
     
     def calc_anomaly_probability(self, queryhist):
-        if len(self.hists) < 1:
+        if len(self.hists) < self.histcapacity and self.histcapacity > 0:
              return -1.0
 
         #most-likely and ambiguity test
@@ -153,11 +155,11 @@ class MONITOR:
             x = x[0]
         yml = y
 
-        if self.b_speed_mode == 1:
+        if self.b_speed_mode == 0:
             T = 20 #degree
             s = 0
             for k in range(queryhist.shape[0]):
-                s += queryhist[k] * np.abs(k - yml)
+                s += queryhist[k,0] * np.abs(k - yml)
             s *= 360 / queryhist.shape[0]
             if s >= T:
                 return -1.0
@@ -165,8 +167,8 @@ class MONITOR:
             T = 1.5 
             s = 0
             for k in range(queryhist.shape[0]):
-                s += queryhist[k] * np.abs(k - yml)
-            s *= self.nbr_radius / queryhist.shape[0]
+                s += queryhist[k,0] * np.abs(k - yml)
+            s *= self.nbr_radius * 1.0 / (queryhist.shape[0] - 1)
             if s >= T:
                 return -1.0
 
@@ -183,7 +185,7 @@ class MONITOR:
         hist = self.calc_histogram(probmap)
         prob = self.calc_anomaly_probability(hist)
 
-        if len(self.hists) >= self.histcapacity:
+        if len(self.hists) >= self.histcapacity and self.histcapacity > 0:
             self.hists.pop() #delete the last one      
         self.hists.insert(0, hist) #insert the header
 
@@ -198,8 +200,7 @@ class MONITOR:
     def add_frame(self, f0, f1):
         probmap = self.calc_ssd(f0,f1)
         hist = self.calc_histogram(probmap)
-
-        if len(self.hists) >= self.histcapacity:
+        if len(self.hists) >= self.histcapacity and self.histcapacity > 0:
             self.hists.pop() #delete the last one      
         self.hists.insert(0, hist) #insert the header
 
@@ -209,7 +210,7 @@ class MONITOR:
         hist = self.calc_histogram(probmap)
         prob = self.calc_anomaly_probability(hist)
 
-        if prob > 0.8:
+        if prob > 0.9:
             return 1 #alarmed
         elif prob < 0:
             return -1
@@ -257,6 +258,29 @@ def run_train(traindir, monitors):
             continue
         for k in range(len(monitors)):
             monitors[k].add_frame(f0,f1)
+        f0 = f1 #switch 
+        print '.',
+    print '\r\n'
+    return monitors
+
+def run_online_train(imgdir,outdir):
+    filenames = scan_dir_for(imgdir, '.tif')
+    monitors = [] 
+    for idx in range(len(filenames)):
+        sname, fname = filenames[idx]
+        f1 = cv2.imread(fname, 0)
+        if len(monitors) < 1:
+            monitors = setup_monitors(f1)
+            print 'setup ', len(monitors)
+        if idx == 0:
+            f0 = f1
+            continue
+
+        alarms = [0 for k in range(len(monitors))]
+        for k in range(len(monitors)):
+            if idx > 20 and k > len(monitors) * 3 / 4 and 0:
+                pdb.set_trace()
+            alarms[k] = monitors[k].check_add_new_frame(f0,f1)
 
         if 0:
             img = np.zeros(f1.shape)
@@ -267,8 +291,27 @@ def run_train(traindir, monitors):
             cv2.imwrite('out/%s.1.jpg'%sname, img)
 
         f0 = f1 #switch 
-        print 'train ',sname
+
+       
+        img = cv2.cvtColor(f1, cv2.COLOR_GRAY2RGB)
+        maskcolor = np.array([0,0,255])
+        for k in range(len(alarms)):
+            if alarms[k] <= 0:
+                continue
+            cx,cy = monitors[k].get_centerxy()
+            radius = 8
+            w0 = 0.4
+            w1 = 1 - w0
+            for y in range(cy - radius, cy + radius,1):
+                for x in range(cx - radius, cx + radius,1):
+                    img[y,x,:] = np.uint8(img[y,x,:] * w0 + maskcolor * w1)
+        outfilename = outdir + sname + ".jpg"
+        cv2.imwrite(outfilename, img)
+        print 'online train ',sname
     return monitors
+
+
+
 
 def run_predict(traindir, outdir, monitors):
 
@@ -310,8 +353,38 @@ def run_predict(traindir, outdir, monitors):
 if __name__ == "__main__":
     with open('config.txt', 'r') as f:
         rootdir = f.readline().strip()
-    monitors = run_train(rootdir+'Train/Train001/', [])
-    run_predict(rootdir+'Test/Test001/', 'out/', monitors)
+    if 0:
+        monitors = run_train(rootdir+'Train/Train001/', [])
+        for k in range(2, 4):
+            traindir = rootdir + 'Train/Train%.3d/'%k
+            monitors = run_train(traindir,monitors)
+        with open('model.txt', 'w') as f:
+            pickle.dump(monitors, f)
+        run_predict(rootdir+'Test/Test001/', 'out/', monitors)
+    elif 1:
+        with open('model.txt', 'r') as f:
+            monitors = pickle.load(f)
+
+        if 0:
+            monitor_infos = []
+            m1 = 0
+            for mts in monitors:
+                m = mts.calc_histogram_mean()
+                left,top,right,bottom = mts.get_region()
+                monitor_infos.append((m, left, top, right, bottom))
+                if m > m1:
+                    m1 = m
+
+            img = np.zeros((158,238))
+            for item in monitor_infos:
+                m, left, top, right, bottom = item
+                img[top:bottom, left:right] = np.uint8(m * 255.0 / m1)
+            cv2.imwrite('test.1.jpg', img)
+
+        run_predict(rootdir+'Test/Test001/', 'out/', monitors)
+
+    else:
+        monitors = run_online_train(rootdir+'Test/Test001/', 'out/')
 
 
     
