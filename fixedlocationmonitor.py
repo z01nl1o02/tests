@@ -98,7 +98,7 @@ class MONITOR:
     def histogram_on_orientation(self, probmap):
         cx = probmap.shape[1] / 2
         cy = probmap.shape[0] / 2
-        binsize = 10
+        binsize = 30
         binnum = 360 / binsize
         hist = np.zeros((binnum,1))
         for y in range(probmap.shape[0]):
@@ -114,7 +114,7 @@ class MONITOR:
                 if a >= binnum:
                     a = binnum - 1
                 hist[a,0] += probmap[y,x]
-        hist = hist / np.sum(hist)
+        hist = hist / (np.sum(hist) + 0.0001)
         return hist
 
     def calc_histogram(self,probmap):
@@ -154,7 +154,7 @@ class MONITOR:
             s = 0
             for k in range(hist.shape[0]):
                 s += hist[k,0] * np.abs(k - yml)
-            s *= 360 / hist.shape[0]
+            s *= 360.0 / hist.shape[0]
             if s >= T:
                 return (0,yml) #bad observation
         else:
@@ -254,7 +254,7 @@ def setup_monitors(img):
     nbr_radius = 8
     ssd_radius = 8
     frameshape = img.shape
-    b_speed_mode  = 1
+    b_speed_mode  = 0
     for y in range(nbr_radius + ssd_radius, img.shape[0] - nbr_radius - ssd_radius, 2 * nbr_radius):
         for x in range(nbr_radius + ssd_radius, img.shape[1] - nbr_radius - ssd_radius, 2 * nbr_radius):
             centerxy = (x,y)
@@ -386,10 +386,10 @@ if __name__ == "__main__":
                 pickle.dump(monitors, f)
         run_predict(rootdir+'Test/Test001/', 'out/', monitors)
     elif 1:
-        with open('model18.txt', 'r') as f:
+        with open('model9.txt', 'r') as f:
             monitors = pickle.load(f)
 
-        if 0:
+        if 1:
             monitor_infos = []
             m1 = 0
             for mts in monitors:
@@ -405,7 +405,7 @@ if __name__ == "__main__":
                 img[top:bottom, left:right] = np.uint8(m * 255.0 / m1)
             cv2.imwrite('test.1.jpg', img)
 
-        run_predict(rootdir+'Test/Test020/', 'out/', monitors)
+        run_predict(rootdir+'Test/Test031/', 'out/', monitors)
 
     else:
         monitors = run_online_train(rootdir+'Test/Test025/', 'out/')
