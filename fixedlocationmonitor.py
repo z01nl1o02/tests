@@ -9,6 +9,14 @@ by Amit Adam, Ehud Rivlin, llan Shimshoni, David Reinitz
 
 dataset:
 UCSD_Anomaly Dataset
+
+
+keys:
+1. windows size should be selected acoording to application. 8 for ssd radius and neighbour radius is a good value to start testing
+2. only observation obeys following two conditions will be inserted to history or check anomaly
+   a) most likely and ambiguity test
+   b) nonzero optical flow (minima ssd is just center of neighbor window)
+   any observation out of these conditions will be ignored 
 """
 
 class MONITOR:
@@ -62,7 +70,6 @@ class MONITOR:
 
         probmap = self.ssd_k * np.exp(-self.ssd_a * probmap)  
         if 0:
-            pdb.set_trace()
             cv2.imwrite('f0.jpg', f0)
             cv2.imwrite('f1.jpg', f1)
             img = np.zeros(f0.shape)
@@ -78,9 +85,17 @@ class MONITOR:
     def histogram_on_speed(self, probmap):
         cx = probmap.shape[1] / 2
         cy = probmap.shape[0] / 2
+
+
+
         binsize = 1
         binnum = np.int64(self.nbr_radius / binsize) + 1
         hist = np.zeros((binnum,1))
+
+
+        if probmap[cy,cx] == probmap.max():
+            return hist # no optical flow found and this observation will be discarded
+
         for y in range(probmap.shape[0]):
             for x in range(probmap.shape[1]):
                 if probmap[y,x] < 0.0001:
@@ -101,6 +116,13 @@ class MONITOR:
         binsize = 30
         binnum = 360 / binsize
         hist = np.zeros((binnum,1))
+
+
+        if probmap[cy,cx] == probmap.max():
+            return hist # no optical flow found and this observation will be discarded
+
+
+
         for y in range(probmap.shape[0]):
             for x in range(probmap.shape[1]):
                 if probmap[y,x] < 0.0001:
@@ -125,8 +147,14 @@ class MONITOR:
 
     #a method to show monitor inforamtion stored
     def calc_histogram_mean(self):
+
+        if len(self.hists) < 1:
+            return 0.0
+
         if len(self.hists) < self.histcapacity and self.histcapacity > 0:
             return 0.0
+
+
         refhist = np.zeros(self.hists[0].shape)
         for h in self.hists:
             refhist += h
@@ -148,6 +176,9 @@ class MONITOR:
             y = y[0]
             x = x[0]
         yml = y
+
+        if hist[yml,0] < 0.001:
+            return (0, yml)  #a special case where minima of ssd is at center (no optical flow found)
 
         if self.b_speed_mode == 0:
             T = 20 #degree
@@ -254,7 +285,7 @@ def setup_monitors(img):
     nbr_radius = 8
     ssd_radius = 8
     frameshape = img.shape
-    b_speed_mode  = 0
+    b_speed_mode  = 1
     for y in range(nbr_radius + ssd_radius, img.shape[0] - nbr_radius - ssd_radius, 2 * nbr_radius):
         for x in range(nbr_radius + ssd_radius, img.shape[1] - nbr_radius - ssd_radius, 2 * nbr_radius):
             centerxy = (x,y)
@@ -384,12 +415,30 @@ if __name__ == "__main__":
             monitors = run_train(traindir,monitors)
             with open('model%d.txt'%k, 'w') as f:
                 pickle.dump(monitors, f)
+
+            if 1:
+                monitor_infos = []
+                m1 = 0
+                for mts in monitors:
+                    m = mts.calc_histogram_mean()
+                    left,top,right,bottom = mts.get_region()
+                    monitor_infos.append((m, left, top, right, bottom))
+                    if m > m1:
+                        m1 = m
+
+                img = np.zeros((158,238))
+                for item in monitor_infos:
+                    m, left, top, right, bottom = item
+                    img[top:bottom, left:right] = np.uint8(m * 255.0 / m1)
+                cv2.imwrite('test.1.jpg', img)
+
+
         run_predict(rootdir+'Test/Test001/', 'out/', monitors)
     elif 1:
-        with open('model9.txt', 'r') as f:
+        with open('model13.txt', 'r') as f:
             monitors = pickle.load(f)
 
-        if 1:
+        if 0:
             monitor_infos = []
             m1 = 0
             for mts in monitors:
@@ -405,7 +454,7 @@ if __name__ == "__main__":
                 img[top:bottom, left:right] = np.uint8(m * 255.0 / m1)
             cv2.imwrite('test.1.jpg', img)
 
-        run_predict(rootdir+'Test/Test031/', 'out/', monitors)
+        run_predict(rootdir+'Test/Test007/', 'out/', monitors)
 
     else:
         monitors = run_online_train(rootdir+'Test/Test025/', 'out/')
