@@ -3,21 +3,22 @@ import cv2
 import numpy as np
 import theano
 import theano.tensor as T
+import pylab as plt
+
+
 #using logistic regression to do binary classification on plate color (blue or yellow)
-#the result is not so good
+#small-scale tests show good performance
 class NPR_COLOR:
     def load_sample(self, filepath):
         bgr = cv2.imread(filepath,1)
         img = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-        hist = np.zeros((1,90 * 64))
+        hist = np.zeros((1,90))
         for y in range(img.shape[0]):
             for x in range(img.shape[1]):
                 h = img[y,x,0] / 2
-                s = img[y,x,1] / 4
-                v = img[y,x,2] / 4
-                v = v * 90 + h
-                hist[0,v] += 1
-        hist = hist * 1.0 / (img.shape[0] * img.shape[1])
+                hist[0,h] += 1
+        #hist = hist * 1.0 / (img.shape[0] * img.shape[1])
+        hist = hist * 1.0 / hist.max()
        # for k in range(1,hist.shape[1]):
        #     hist[0,k] = hist[0,k-1] + hist[0,k]
         return hist
@@ -40,6 +41,21 @@ class NPR_COLOR:
         s1 = self.load_samples(posdir)
         l1 = [1 for k in range(s1.shape[0])]
 
+        if 0:
+            plt.figure(1)
+            axpos = plt.subplot(211)
+            axneg = plt.subplot(212)
+            pos = s1[10,:]
+            neg = s0[-10,:]
+            plt.sca(axpos)
+            #plt.hist(pos)
+            plt.plot(range(0,pos.shape[0]), pos)
+            plt.sca(axneg)
+            #plt.hist(neg)
+            plt.plot(range(0,pos.shape[0]), neg)
+            plt.show()
+            pdb.set_trace()
+
         s = np.vstack((s0,s1))
         l0.extend(l1)
         l = np.asarray(l0)
@@ -61,22 +77,25 @@ class NPR_COLOR:
         with open('npr_color_trainK.func.txt', 'w') as f:
             pickle.dump(trainK, f)
 
-        with open('npr_color_predictK.func.txt', 'w') as f:
-            pickle.dump(predictK, f)
-
-        for k in range(100):
+        for k in range(400):
             pred, err = trainK(s, l)
             print k, ' ', err.mean(), ' ', (pred == l).sum()
+
+        with open('npr_color_predictK.func.txt', 'w') as f:
+            pickle.dump(predictK, f) #save model after training the train parameter will be saved too
         print w.get_value()
+        print b.get_value()
 
     def predict(self,testdir):
         with open('npr_color_predictK.func.txt', 'r') as f:
             predictK = pickle.load(f)
         s = self.load_samples(testdir)
         pred = predictK(s)
+        """
         for i in pred:
             print i,
         print ' '
+        """
         return pred.sum()
 
 if __name__=='__main__':
