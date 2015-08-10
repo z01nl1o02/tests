@@ -3,7 +3,8 @@ import cv2
 import numpy as np
 import theano
 import theano.tensor as T
-
+#using logistic regression to do binary classification on plate color (blue or yellow)
+#the result is not so good
 class NPR_COLOR:
     def load_sample(self, filepath):
         bgr = cv2.imread(filepath,1)
