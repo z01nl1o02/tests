@@ -3,8 +3,8 @@ import numpy as np
 import cv2
 import theano
 import theano.tensor as T
-
-#you may try several times to get a good model and the init 'cost' may be quite large, 78 .e.g
+import random
+#you may try several times to get a good model and the init 'cost' may be quite large, 78 .e.g.
 class Layer(object):
     """
     a layer is a maxtrix with row = output of this layer and col = output of 
@@ -22,10 +22,10 @@ class Layer(object):
                                 broadcastable=(False,True))
         self.activation = activation
         self.params = [self.W, self.b]
+
     def output(self,x):
         lin_output = T.dot(self.W,x) + self.b
         return (lin_output if self.activation is None else self.activation(lin_output))
-
 
 class MLP(object):
     def __init__(self, W_init, b_init, activations):
@@ -36,10 +36,12 @@ class MLP(object):
         self.params = []
         for layer in self.layers:
             self.params += layer.params
+
     def output(self,x):
         for layer in self.layers:
             x = layer.output(x)
         return x
+
     def squared_error(self,x,y):
          return T.sum((self.output(x) - y) ** 2)
          return T.mean((self.output(x) - y) ** 2)
@@ -66,6 +68,7 @@ class SAMPLE:
                 feat[0,k] = v
                 k += 1
         return feat
+
     def load_label_sample(self, rootdir, label):
         label_list = []
         sample_list = []
@@ -79,6 +82,21 @@ class SAMPLE:
                     label_list.append(label)
                     sample_list.append(feat)
         return (label_list, sample_list)
+
+    def shuffle(self,samples, targets, targets2):
+        totalnum = samples.shape[0]
+        idx = range(totalnum)
+        random.shuffle(idx)
+        new_samples = np.zeros(samples.shape)
+        new_targets = np.zeros((len(targets),))
+        new_targets2 = np.zeros(targets2.shape)
+        for k in range(len(idx)):
+            i = idx[k]
+            new_samples[k,:] = samples[i,:]
+            new_targets[k] = targets[i]
+            new_targets2[:,k] = targets2[:,i]
+        return (new_samples, new_targets, new_targets2) 
+
 
     def load_all_samples(self, rootdir):
         label_list = []
@@ -100,7 +118,7 @@ class SAMPLE:
         for k in range(label_num):
             l = targets[k]
             targets2[l, k] = 1      
-        return (samples,targets, targets2)
+        return self.shuffle(samples,targets, targets2)
 
 def calc_accuration(targets, outputs):
 #    return np.mean((outputs > 0.5) == targets)
@@ -116,7 +134,6 @@ def calc_accuration(targets, outputs):
             continue
         if np.abs(o[t] - o.max()) < 0.001:
             hit += 1 
-
     return hit * 1. / outputs.shape[1]
  
 def train_mlp(rootdir):
@@ -127,7 +144,7 @@ def train_mlp(rootdir):
     target_dim = len(set(targets)) # -1 for binary-classes problem
     targets = np.reshape(targets, (1, -1))
     assert sample_num == target_num
-    layer_sizes = [sample_dim, 2 * sample_dim, target_dim]
+    layer_sizes = [sample_dim, 1 * sample_dim, target_dim]
     W_init = []
     b_init = []
     activations = []
@@ -158,13 +175,13 @@ def train_mlp(rootdir):
         current_output = predict(samplesT)
         print iteration, ' ', current_cost.mean(), ' ', calc_accuration(targets, current_output)
         iteration += 1
+
     with open('model.ocr_mlp.txt', 'w') as f:
         pickle.dump(predict, f)
 
 def predict_mlp(rootdir):
     spl = SAMPLE()
     samples, targets, targets2 = spl.load_all_samples(rootdir)
-
     with open('model.ocr_mlp.txt', 'r') as f:
         predict = pickle.load(f)
 
