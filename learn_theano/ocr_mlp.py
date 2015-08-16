@@ -101,7 +101,7 @@ class SAMPLE:
     def load_all_samples(self, rootdir):
         label_list = []
         sample_list = []
-        for label in range(0,2,1):
+        for label in range(0,10,1):
             l,s = self.load_label_sample(rootdir, label)
             label_list.extend(l)
             sample_list.extend(s)
@@ -162,10 +162,10 @@ def train_mlp(rootdir):
     predict = theano.function([mlp_input],  mlp.output(mlp_input))
     
     iteration = 0
-    max_iteration = 512
+    max_iteration = 100
     samplesT = np.transpose(samples) #W*x + b
     while iteration < max_iteration:
-        if 0:
+        if 1:
             for k in range(samplesT.shape[1]):
                 s = np.reshape(samplesT[:,k],(-1,1))
                 t = np.reshape(targets2[:,k],(-1,1))
