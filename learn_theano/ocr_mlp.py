@@ -58,7 +58,7 @@ def gradient_updates_momentum(cost, params, learning_rate, momentum):
 class SAMPLE:
     def extract_feature(self, imgpath):
         img = cv2.imread(imgpath, 0)
-        stdw,stdh = (8,16)
+        stdw,stdh = (16,16)
         img = cv2.resize(img, (stdw,stdh))
         feat = np.zeros((1,stdw * stdh))
         k = 0
@@ -76,7 +76,7 @@ class SAMPLE:
         for rdir, pdir, names in os.walk(sampledir):
             for name in names:
                 sname, ext = os.path.splitext(name)
-                if 0 == cmp('.jpg', ext):
+                if 0 == cmp('.bmp', ext):
                     fname = os.path.join(rdir, name)
                     feat = self.extract_feature(fname)
                     label_list.append(label)
@@ -101,7 +101,7 @@ class SAMPLE:
     def load_all_samples(self, rootdir):
         label_list = []
         sample_list = []
-        for label in range(0,10,1):
+        for label in range(0,4,1):
             l,s = self.load_label_sample(rootdir, label)
             label_list.extend(l)
             sample_list.extend(s)
@@ -162,18 +162,27 @@ def train_mlp(rootdir):
     predict = theano.function([mlp_input],  mlp.output(mlp_input))
     
     iteration = 0
-    max_iteration = 100
+    max_iteration = 500
     samplesT = np.transpose(samples) #W*x + b
+    batchsize = 32
     while iteration < max_iteration:
+        cost = 0
+        total = 0
         if 1:
-            for k in range(samplesT.shape[1]):
-                s = np.reshape(samplesT[:,k],(-1,1))
-                t = np.reshape(targets2[:,k],(-1,1))
+            for k in range(0,samplesT.shape[1],batchsize):
+                kk = k
+                if kk + batchsize > samplesT.shape[1]:
+                    kk = samplesT.shape[1] - batchsize
+                s = np.reshape(samplesT[:,kk:kk+batchsize],(-1,batchsize))
+                t = np.reshape(targets2[:,kk:kk+batchsize],(-1,batchsize))
                 current_cost = train(s,t)
+                cost =  cost + current_cost.sum()
+                total += batchsize
             
-        current_cost = train(samplesT,targets2)
-        current_output = predict(samplesT)
-        print iteration, ' ', current_cost.mean(), ' ', calc_accuration(targets, current_output)
+      #  current_cost = train(samplesT,targets2)
+        if (1+iteration)% 5 == 0: 
+            current_output = predict(samplesT)
+            print iteration, ' ', cost / total, ' ', calc_accuration(targets, current_output)
         iteration += 1
 
     with open('model.ocr_mlp.txt', 'w') as f:
