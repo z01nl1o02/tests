@@ -76,11 +76,12 @@ class SAMPLE:
         for rdir, pdir, names in os.walk(sampledir):
             for name in names:
                 sname, ext = os.path.splitext(name)
-                if 0 == cmp('.bmp', ext):
+                if 0 == cmp('.bmp', ext) or 0 == cmp('.jpg', ext):
                     fname = os.path.join(rdir, name)
                     feat = self.extract_feature(fname)
                     label_list.append(label)
                     sample_list.append(feat)
+
         return (label_list, sample_list)
 
     def shuffle(self,samples, targets, targets2):
@@ -101,7 +102,7 @@ class SAMPLE:
     def load_all_samples(self, rootdir):
         label_list = []
         sample_list = []
-        for label in range(0,4,1):
+        for label in range(0,10,1):
             l,s = self.load_label_sample(rootdir, label)
             label_list.extend(l)
             sample_list.extend(s)
@@ -162,9 +163,9 @@ def train_mlp(rootdir):
     predict = theano.function([mlp_input],  mlp.output(mlp_input))
     
     iteration = 0
-    max_iteration = 500
+    max_iteration = 5000
     samplesT = np.transpose(samples) #W*x + b
-    batchsize = 32
+    batchsize = 5
     while iteration < max_iteration:
         cost = 0
         total = 0
