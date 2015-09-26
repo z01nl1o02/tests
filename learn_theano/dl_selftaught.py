@@ -15,7 +15,7 @@ class LAYER(object):
 
     def output(self,x):
         lin_out = T.dot(self.W,x) + self.b
-        if self.tranfunc == None:
+        if self.tranfunc is None:
             return lin_out
         return self.tranfunc(lin_out)
 
@@ -29,6 +29,7 @@ class MLP(object):
             layer = LAYER(init_W, init_b, tranfunc)
             self.layers.append(layer)
             self.params.extend(layer.param)
+
 
     def output(self,x):
         for layer in self.layers:
@@ -64,8 +65,8 @@ def gen_initial_param(layer_sizes):
     return (Ws, bs, tfs)
 
 def create_config_net(layer_sizes):
-    learn_ratio = 0.1
-    moment = 0.8
+    learn_ratio = 0.01
+    moment = 0.9
     net_in = T.matrix('net_in')
     net_out = T.matrix('net_out')
     
@@ -116,7 +117,7 @@ class DATA(object):
     def load(self, rootdir):
         labels = []
         samples = []
-        labellist = range(0,3,1)
+        labellist = range(0,10,1)
         for label in labellist:
             s,l = self.load_label_sample(rootdir, label)
             samples.extend(s)
@@ -130,17 +131,19 @@ def gen_train_samples(samples, labels, labellist):
     trainset = np.zeros((dim,total))
     trainlabel = np.zeros((len(labellist), total))
     for k in range(total):
-        trainset[:,k] = np.transpose(samples[0]).reshape(trainset[:,k].shape)
+        trainset[:,k] = np.transpose(samples[k]).reshape(trainset[:,k].shape)
 #        trainlabel[labels[k],k] = 1
     trainlabel = trainset #self-map
     return (trainset, trainlabel)
 
 def calc_false_alarm(target,output):
     hit = 0
+    line = ""
     for k in range(target.shape[1]):
         tgt = target[:,k]
         prd = output[:,k]
         prdmax = prd.max()
+        line += str(np.argmax(tgt)) + ' ' + str(np.argmax(prd)) + '\n'
         if prdmax < 0.001:
             continue
         maxnum = 0
@@ -149,10 +152,11 @@ def calc_false_alarm(target,output):
                 maxnum += 1
         if maxnum > 1:
             continue
-        prd = prd / prdmax
-        if tgt.index(1) == prd.index(1):
+        if np.argmax(tgt) == np.argmax(prd):
             hit += 1
-        return 1 - hit * 1. / target.shape[1]
+    with open('net.log', 'w') as f:
+        f.writelines(line)
+    return 1 - hit * 1. / target.shape[1]
 
 def draw_weight(net):
     W = net.layers[0].W.get_value()
@@ -162,10 +166,12 @@ def draw_weight(net):
         for y in range(s):
             for x in range(s):
                 img[y,x] = W[k,y * s + x]
-        img = np.abs(img)
+        norm = np.sqrt(np.sum(img ** 2))
+        img = img / norm
         if k == 0:
             print '  old ', img.min(), ' ', img.max(),' ', np.mean(img), ' ' ,img[4,4]
         img = (img - img.min()) * 255.0 / (img.max() - img.min())
+      #  img = img * 255
         img = np.uint8(img)
         cv2.imwrite('d:/tmp/ALPR/ocr'+str(k)+'.jpg', img) 
 
@@ -174,15 +180,18 @@ def do_train(rootdir):
     samples, labels, labellist = DATA().load(rootdir)  
     print 'sample num ', len(samples)
     in_num = samples[0].shape[1]
-    layer_size = [in_num, 20, in_num]
+  # layer_size = [in_num, 20, len(labellist)]
+    layer_size = [in_num, 25, in_num]
     net,train,predict = create_config_net(layer_size)
+
+
     trainset,trainlabel = gen_train_samples(samples, labels, labellist)
 
     iterator = 0
     batchsize = 5
 
 #    draw_weight(net)
-    while iterator < 5000:
+    while iterator < 50000:
         iterator += 1
         all_cost = 0
         all_num = 0 
@@ -195,10 +204,10 @@ def do_train(rootdir):
             all_cost += cur_cost.sum()
             all_num += batchsize
             
-        if iterator % 50 == 0:
+        if iterator % 500 == 0:
             prd = predict(trainset) 
-        #    fa = calc_false_alarm(trainlabel, prd)
-            print iterator, ' ', all_cost*1./all_num
+            fa = calc_false_alarm(trainlabel, prd)
+            print iterator, ' ', all_cost*1./all_num, ' ', fa
             draw_weight(net)
 
 
