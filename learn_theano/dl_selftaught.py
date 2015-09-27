@@ -1,8 +1,12 @@
-import os,sys,pdb,cv2,pickle,random
+import os,sys,pdb,cv2,pickle,random 
 import numpy as np
 import theano
 import theano.tensor as T
 
+class PARAM(object):
+    def __init__(self):
+        self.imgw = 16
+        self.imgh = 32
 
 class LAYER(object):
     def __init__(self, init_W, init_b, tranfunc):
@@ -39,6 +43,10 @@ class MLP(object):
     def calc_error(self,x,y):
         py = self.output(x)
         error = T.sum((py - y) ** 2)
+        wc = 0
+        for param in self.params:
+            wc += np.sum(param.get_value() ** 2)
+        error =error * 0.5 + wc * 0.5
         return error
 
     def gen_update_pairs(self, cost, learn_ratio, moment):
@@ -85,7 +93,8 @@ def create_config_net(layer_sizes):
 class DATA(object):
     def gen_feature(self, imgpath):
         img = cv2.imread(imgpath, 0)
-        stdw,stdh = (16,16)
+ 
+        stdw,stdh = (PARAM().imgw,PARAM().imgh)
         img = cv2.resize(img, (stdw,stdh))
         img = np.reshape(img, (1,-1))
         img = img / 255.0
@@ -117,13 +126,27 @@ class DATA(object):
     def load(self, rootdir):
         labels = []
         samples = []
-        labellist = range(0,10,1)
+        labellist = range(0,5,1)
         for label in labellist:
             s,l = self.load_label_sample(rootdir, label)
             samples.extend(s)
             labels.extend(l)
         samples,labels = self.shuffle(samples,labels)
         return (samples, labels, labellist)
+
+def whiten_data(samples):
+
+    m = np.reshape(np.mean(samples,1),(-1,1))
+    x = samples - np.tile(m,(1, samples.shape[1]))
+    xx = np.dot(x, np.transpose(x)) / samples.shape[1]
+    u,s,v = np.linalg.svd(xx)
+    xRot = np.dot(np.transpose(u) , x)
+    s = np.reshape(np.sqrt(s),(-1,1)) + 0.000001
+    x_pcaw = xRot / np.tile(s, (1, xRot.shape[1]))
+    x_zcaw = np.dot(u , x_pcaw)
+    samples = x_zcaw
+
+    return samples
 
 def gen_train_samples(samples, labels, labellist):
     total = len(samples)
@@ -133,7 +156,12 @@ def gen_train_samples(samples, labels, labellist):
     for k in range(total):
         trainset[:,k] = np.transpose(samples[k]).reshape(trainset[:,k].shape)
 #        trainlabel[labels[k],k] = 1
+
+#    trainset = whiten_data(trainset)
     trainlabel = trainset #self-map
+
+    trainset = whiten_data(trainset)
+
     return (trainset, trainlabel)
 
 def calc_false_alarm(target,output):
@@ -158,20 +186,27 @@ def calc_false_alarm(target,output):
         f.writelines(line)
     return 1 - hit * 1. / target.shape[1]
 
+def draw_prd(prd):
+    for k in range(5):
+        img = np.zeros((PARAM().imgh,PARAM().imgw))
+        for y in range(PARAM().imgh):
+            for x in range(PARAM().imgw):
+                img[y,x] = prd[y * PARAM().imgw + x, k]
+        img = (img - img.min()) * 255.0 / (img.max() - img.min())
+        img = np.uint8(img)
+        cv2.imwrite('d:/tmp/ALPR/prd'+str(k)+'.jpg', img) 
+
+
 def draw_weight(net):
     W = net.layers[0].W.get_value()
-    s = np.int32(np.sqrt(W.shape[1]))
-    img = np.zeros((s,s))
     for k in range(W.shape[0]):
-        for y in range(s):
-            for x in range(s):
-                img[y,x] = W[k,y * s + x]
-        norm = np.sqrt(np.sum(img ** 2))
-        img = img / norm
-        if k == 0:
-            print '  old ', img.min(), ' ', img.max(),' ', np.mean(img), ' ' ,img[4,4]
+        img = np.reshape(W[k,:],(PARAM().imgh,PARAM().imgw))
+   #     norm = np.sqrt(np.sum(img ** 2))
+   #     img = img / norm
+        if k < 3:
+            print ' ', img.min(), ' ', img.max(), ' ', W.shape
+#        img = np.abs(img)
         img = (img - img.min()) * 255.0 / (img.max() - img.min())
-      #  img = img * 255
         img = np.uint8(img)
         cv2.imwrite('d:/tmp/ALPR/ocr'+str(k)+'.jpg', img) 
 
@@ -180,8 +215,8 @@ def do_train(rootdir):
     samples, labels, labellist = DATA().load(rootdir)  
     print 'sample num ', len(samples)
     in_num = samples[0].shape[1]
-  # layer_size = [in_num, 20, len(labellist)]
-    layer_size = [in_num, 25, in_num]
+#    layer_size = [in_num, 20, len(labellist)]
+    layer_size = [in_num, 10, in_num]
     net,train,predict = create_config_net(layer_size)
 
 
@@ -204,12 +239,12 @@ def do_train(rootdir):
             all_cost += cur_cost.sum()
             all_num += batchsize
             
-        if iterator % 500 == 0:
+        if iterator % 5 == 0:
             prd = predict(trainset) 
             fa = calc_false_alarm(trainlabel, prd)
             print iterator, ' ', all_cost*1./all_num, ' ', fa
             draw_weight(net)
-
+            draw_prd(prd)
 
 if __name__=="__main__":
     if len(sys.argv) == 3 and 0 == cmp(sys.argv[1], '-train'):
