@@ -28,8 +28,8 @@ class GABOR_FEAT(object):
         h = y1 - y0 + 1
         left = x0 - w
         right = x1 + w
-        top = y0 - 2 * w
-        bottom = y0 
+        top = y0 - w
+        bottom = y1 + h
         w = right - left + 1
         h = bottom - top + 1
         subimg = np.zeros((h,w))

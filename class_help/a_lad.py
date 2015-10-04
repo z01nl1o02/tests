@@ -53,8 +53,23 @@ def LDA_A(rootdir, posdir, posnum, negnum_p):
         X.append((paths[k], cnf[k], imgs[k]))
     X = sorted(X, key = lambda a : a[1])
     line = ""
+    lineA = "" #sometimes, the positive set is split into two parts
+    lineB = ""
     for path, cnf, img in X:
         line += str(cnf) + ' ' + path + ' ' + img + '\n'
+        if 0 != cmp(path, posdir):
+            continue
+        if cnf > 0:
+            lineA += img + '\n'
+        else:
+            lineB += img + '\n'
+
+    with open('A.txt', 'w') as f:
+        f.writelines(lineA)
+    with open('B.txt', 'w') as f:
+        f.writelines(lineB)
+
+
 
     with open('result.txt', 'w') as f:
         f.writelines(line) 
