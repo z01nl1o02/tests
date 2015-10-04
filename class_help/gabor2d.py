@@ -30,6 +30,7 @@ def create_gabor_2d(bandwidth, x2y, psi, wavelen, theta):
 
     gb = np.exp( -0.5 * (x_theta **2 / (sigma_x**2) + y_theta ** 2 / (sigma_y**2)))
     gb = gb * np.cos(2 * math.pi / wavelen * x_theta + psi)
+    gb = gb / gb.sum()
     return gb
 
 
