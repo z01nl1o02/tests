@@ -56,9 +56,13 @@ class GABOR_FEAT(object):
         return fv
 
     def gen_folder_gabor(self, rootdir, capacity):
+        rootdir = rootdir.strip('\\')
         fvs = []
         imgs = []
         for rdir,pdir,names in os.walk(rootdir):
+            if  len(rdir.strip('\\')) != len(rootdir):
+                print 'jump images in ', rdir
+                continue
             for name in names:
                 sname,ext = os.path.splitext(name)
                 if 0 != cmp('.jpg', ext):
