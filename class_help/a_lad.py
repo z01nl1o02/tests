@@ -69,22 +69,82 @@ def LDA_A(rootdir, posdir, posnum, negnum_p):
     with open('B.txt', 'w') as f:
         f.writelines(lineB)
 
-
-
     with open('result.txt', 'w') as f:
         f.writelines(line) 
 
     return 
 
+
+def LDA_B(rootdir, folderA, folderB, folderC):
+    pos = []
+    neg = [] 
+    imgspos = []
+    imgsneg = []
+    gbf = igbf.GABOR_FEAT()
+
+    #1--class A
+    fvs, imgs = gbf.gen_folder_gabor(os.path.join(rootdir, folderA), 100000)
+    pos.extend(fvs)
+    imgspos.extend(imgs)
+    #2--class B
+    fvs, imgs = gbf.gen_folder_gabor(os.path.join(rootdir, folderB), 100000)
+    neg.extend(fvs)
+    imgsneg.extend(imgs)
+
+    #3--train
+    label0 = [0 for k in range(len(pos))]
+    label1 = [1 for k in range(len(neg))]
+    samples = np.array(pos + neg)
+    labels = np.array(label0 + label1)
+    imgs = imgspos + imgsneg
+    clf_pca = PCA(300)
+    samples = clf_pca.fit_transform(samples)
+    print 'after pca : ', samples.shape
+    clf_lda = LDA()
+    clf_lda.fit(samples,labels)
+
+
+    #4--predict
+    fvs, imgs = gbf.gen_folder_gabor(os.path.join(rootdir, folderC), 100000)
+    samples = np.array(fvs) 
+    samples = clf_pca.transform(samples)
+    cnf = clf_lda.decision_function(samples)
+    X = []
+    for k in range(len(imgs)):
+        X.append((cnf[k], imgs[k]))
+    X = sorted(X, key = lambda a : a[0])
+    lineA = "" #sometimes, the positive set is split into two parts
+    lineB = ""
+    for cnf, img in X:
+        if cnf > 0:
+            lineA += img + '\n'
+        else:
+            lineB += img + '\n'
+
+    with open('A.txt', 'w') as f:
+        f.writelines(lineA)
+    with open('B.txt', 'w') as f:
+        f.writelines(lineB)
+    return 
+
+
+
 if __name__=="__main__":
-    with open('config.txt','r') as f:
-        rootdir = f.readline().strip()
-        posdir = f.readline().strip()
-        posnum = np.int64(f.readline().strip())
-        negnum_p = np.int64(f.readline().strip())
-    LDA_A(rootdir, posdir, posnum, negnum_p)
-
-
+    if len(sys.argv) == 0:
+        with open('config.txt','r') as f:
+            rootdir = f.readline().strip()
+            posdir = f.readline().strip()
+            posnum = np.int64(f.readline().strip())
+            negnum_p = np.int64(f.readline().strip())
+        LDA_A(rootdir, posdir, posnum, negnum_p)
+    elif len(sys.argv) == 5:
+        rootdir = sys.argv[1]
+        folderA = sys.argv[2]
+        folderB = sys.argv[3]
+        folderC = sys.argv[4]
+        LDA_B(rootdir, folderA, folderB, folderC)
+    else:
+        print 'unknown options'
 
 
 
