@@ -1,18 +1,12 @@
 import os,sys,pdb,pickle,cv2,math
 import numpy as np
-import gabor2d
+from skimage.feature import local_binary_pattern
 
 
-class GABOR_FEAT(object):
+class LBP_FEAT(object):
     def __init__(self):
         self.resample_w = 90
         self.resample_h = 60
-        self.gabors = []
-        for w in range(5,21,5):
-            for a in range(0,180,30):
-                angle = a * math.pi / 180.0
-                gb = gabor2d.create_gabor_2d(1,1,0,w,angle)
-                self.gabors.append(gb)
 
     def crop_image(self, imgpath): 
         name = imgpath.split('\\')[-1]
@@ -44,15 +38,20 @@ class GABOR_FEAT(object):
         img = self.crop_image(imgpath)
         if img is None:
             return None
+        img = cv2.GaussianBlur(img,(5,5),1)
         feats = []
-        for gb in self.gabors:
-            feat = cv2.filter2D(img,cv2.CV_64F,gb) 
-            feats.append(feat)
+        feat = local_binary_pattern(img, 8, 1, 'uniform')
+        feats.append(feat)
+        feat = local_binary_pattern(img, 8, 3, 'uniform')
+        feats.append(feat)
         fv = []
+        bins = [k for k in range(60)]
         for feat in feats:
-            for y in range(0, feat.shape[0], 10):
-                for x in range(0, feat.shape[1],10):
-                    fv.append(feat[y:y+10,x:x+10].mean())
+            for y in range(0, feat.shape[0], 5):
+                for x in range(0, feat.shape[1],5):
+                    block = feat[y:y+5,x:x+5]
+                    h = np.histogram(block, bins)[0] / 25.0
+                    fv.extend(h)
         return fv
 
     def gen_folder(self, rootdir, capacity):
@@ -82,7 +81,7 @@ class GABOR_FEAT(object):
 
 if __name__=="__main__":
     imgpath = '1,379,1118,496,1155,1.jpg'
-    fv = GABOR_FEAT().gen_image(imgpath)
+    fv = LBP_FEAT().gen_image(imgpath)
         
     
 

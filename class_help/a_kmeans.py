@@ -1,12 +1,11 @@
 import os,sys,pdb,pickle,cv2
 import numpy as np
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neighbors import NearestNeighbors
+from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 import image_gabor_feature as igbf
 
 
-def KNN_A(rootdir, posdir, posnum, negnum_p):
+def KMeans_A(rootdir, posdir,posnum,negnum_p):
     pos = []
     neg = [] 
     pathpos = []
@@ -14,10 +13,7 @@ def KNN_A(rootdir, posdir, posnum, negnum_p):
     folders = []
     imgspos = []
     imgsneg = []
-    with open('list.txt', 'r') as f:
-        for line in f:
-            line = line.strip()
-            folders.append(line)
+    folders = [posdir] #only check the pointed folder
     gbf = igbf.GABOR_FEAT()
     for folder in folders:
         fname = os.path.join(rootdir, folder)
@@ -43,34 +39,24 @@ def KNN_A(rootdir, posdir, posnum, negnum_p):
     labels = np.array(label0 + label1)
     paths = pathpos + pathneg
     imgs = imgspos + imgsneg
-    clf = PCA(100)
+    com_num = np.minimum(100, samples.shape[0] - 10)
+    clf = PCA(com_num)
     print 'before pca : ', samples.shape
     samples = clf.fit_transform(samples)
     print 'after pca : ', samples.shape
-    if 0:
-        clf = KNeighborsClassifier(5)
-        clf.fit(samples,labels)
-
-        res = [] 
-        for k in range(samples.shape[0]):
-            prd = clf.predict(samples[k,:])
-            res.append((paths[k],prd))
-        res = sorted(res, key = lambda k : k[0])
-        line = ""
-        for path, prd in res:
-            line += path + ' ' + str(prd) + '\n'
-        with open('result.txt', 'w') as f:
-            f.writelines(line)
-    else:
-        clf = NearestNeighbors(5).fit(samples)
-        dists,idxs = clf.kneighbors(samples, 5)
-        line = ""
-        for k in range(len(idxs)):
-            for j in range(len(idxs[k])):
-                line += paths[idxs[k][j]] + ' '
-            line += '\n'
-        with open('result.txt', 'w') as f:
-            f.writelines(line)
+    clf = KMeans(n_clusters=2,n_jobs=-2)
+    prds = clf.fit_predict(samples)
+    line0 = ""
+    line1 = ""
+    for k in range(len(prds)):
+        if prds[k] == 0:
+            line0 += imgs[k] + '\n'
+        else:
+            line1 += imgs[k] + '\n'
+    with open('A.txt', 'w') as f:
+        f.writelines(line0)
+    with open('B.txt', 'w') as f:
+        f.writelines(line1)
     return 
 
 if __name__=="__main__":
@@ -79,7 +65,9 @@ if __name__=="__main__":
         posdir = f.readline().strip()
         posnum = np.int64(f.readline().strip())
         negnum_p = np.int64(f.readline().strip())
-    KNN_A(rootdir, posdir, posnum, negnum_p)
+    posnum = 5000
+    negnum_p = 5000
+    KMeans_A(rootdir, posdir,posnum, negnum_p)
 
 
 
