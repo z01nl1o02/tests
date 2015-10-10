@@ -46,7 +46,8 @@ def LDA_A(rootdir, posdir, posnum, negnum_p, ft):
     labels = np.array(label0 + label1)
     paths = pathpos + pathneg
     imgs = imgspos + imgsneg
-    clf = PCA(300)
+    com_num = np.minimum(300, samples.shape[0] - 10)
+    clf = PCA(com_num)
     samples = clf.fit_transform(samples)
     print 'after pca : ', samples.shape
     clf = LDA()
