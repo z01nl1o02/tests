@@ -61,9 +61,14 @@ class GABOR_FEAT(object):
         imgs = []
         for rdir,pdir,names in os.walk(rootdir):
             if  len(rdir.strip('\\')) != len(rootdir):
-                print 'jump images in ', rdir
+                print 'jump1 images in ', rdir
+                continue
+            if len(fvs) >= capacity:
+                print 'jump2 images in ', rdir
                 continue
             for name in names:
+                if len(fvs) >= capacity:
+                    continue
                 sname,ext = os.path.splitext(name)
                 if 0 != cmp('.jpg', ext):
                     continue
@@ -73,8 +78,6 @@ class GABOR_FEAT(object):
                     continue
                 fvs.append(fv)
                 imgs.append(sname)
-                if len(fvs) >= capacity:
-                    return (fvs,imgs)
         if len(fvs) == 0:
             return (None,None)
         else:
