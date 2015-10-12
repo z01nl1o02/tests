@@ -4,6 +4,7 @@ from sklearn.lda import LDA
 from sklearn.decomposition import PCA
 import image_gabor_feature as igbf
 import image_lbp_feature as ilbpf
+import mklist
 def LDA_A(rootdir, posdir, posnum, negnum_p, ft):
     pos = []
     neg = [] 
@@ -142,6 +143,7 @@ def LDA_B(rootdir, folderA, folderB, folderC,ft):
 
 
 
+
 if __name__=="__main__":
     if len(sys.argv) == 1:
         with open('config.txt','r') as f:
@@ -150,6 +152,8 @@ if __name__=="__main__":
             posnum = np.int64(f.readline().strip())
             negnum_p = np.int64(f.readline().strip())
             ft = f.readline().strip()
+        print "pos folder: ", posdir
+        mklist.gen_dir_list(rootdir)
         LDA_A(rootdir, posdir, posnum, negnum_p,ft)
     elif len(sys.argv) == 6:
         ft = sys.argv[1]
@@ -157,6 +161,7 @@ if __name__=="__main__":
         folderA = sys.argv[3]
         folderB = sys.argv[4]
         folderC = sys.argv[5]
+        mklist.gen_dir_list(rootdir)
         LDA_B(rootdir, folderA, folderB, folderC,ft)
     else:
         print 'unknown options'
