@@ -44,6 +44,8 @@ class LBP_FEAT(object):
         feats.append(feat)
         feat = local_binary_pattern(img, 8, 3, 'uniform')
         feats.append(feat)
+#        feat = local_binary_pattern(img, 8, 5, 'uniform')
+#        feats.append(feat)
         fv = []
         bins = [k for k in range(60)]
         for feat in feats:
