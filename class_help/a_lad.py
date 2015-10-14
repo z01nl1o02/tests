@@ -4,6 +4,7 @@ from sklearn.lda import LDA
 from sklearn.decomposition import PCA
 import image_gabor_feature as igbf
 import image_lbp_feature as ilbpf
+import image_hog_feature as ihogf
 import mklist
 def LDA_A(rootdir, posdir, posnum, negnum_p, ft):
     pos = []
@@ -20,9 +21,15 @@ def LDA_A(rootdir, posdir, posnum, negnum_p, ft):
     if 0 == cmp(ft, 'gabor'):
         print 'feature type: GABOR'
         gbf = igbf.GABOR_FEAT()
-    else:
+    elif 0 == cmp(ft, 'hog'):
+        print 'feature type: HOG'
+        gbf = ihogf.HOG_FEAT()
+    elif 0 == cmp(ft, 'lbp'):
         print 'feature type: LBP'
         gbf = ilbpf.LBP_FEAT()
+    else:
+        print 'unknown feature type'
+        return 
     for folder in folders:
         fname = os.path.join(rootdir, folder)
         if 0 == cmp(folder, posdir):
@@ -87,11 +94,18 @@ def LDA_B(rootdir, folderA, folderB, folderC,ft):
     neg = [] 
     imgspos = []
     imgsneg = []
-    print 'feature type: ', ft
     if 0 == cmp(ft, 'gabor'):
+        print 'feature type: GABOR'
         gbf = igbf.GABOR_FEAT()
-    else:
+    elif 0 == cmp(ft, 'hog'):
+        print 'feature type: HOG'
+        gbf = ihogf.HOG_FEAT()
+    elif 0 == cmp(ft, 'lbp'):
+        print 'feature type: LBP'
         gbf = ilbpf.LBP_FEAT()
+    else:
+        print 'unknown feature type'
+        return
 
     #1--class A
     fvs, imgs = gbf.gen_folder(os.path.join(rootdir, folderA), 1000)
