@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.decomposition import PCA
 import image_gabor_feature as igbf
 import image_lbp_feature as ilbpf
+import image_hog_feature as ihogf
 import mklist
 #distance based image match
 
@@ -74,9 +75,16 @@ def DIST_A(rootdir, posdir, posnum, negnum_p, ft):
     if 0 == cmp(ft, 'gabor'):
         print 'feature type: GABOR'
         gbf = igbf.GABOR_FEAT()
-    else:
+    elif 0 == cmp(ft, 'lbp'):
         print 'feature type: LBP'
         gbf = ilbpf.LBP_FEAT()
+    elif 0 == cmp(ft, 'hog'):
+        print 'feature type: HOG'
+        gbf = ihogf.HOG_FEAT()
+    else:
+        print 'unknown feature type'
+        return 
+
     for folder in folders:
         fname = os.path.join(rootdir, folder)
         if 0 == cmp(folder, posdir):
@@ -152,12 +160,19 @@ def DIST_B(rootdir, folderA, folderB,ft):
     neg = [] 
     imgspos = []
     imgsneg = []
+
     if 0 == cmp(ft, 'gabor'):
         print 'feature type: GABOR'
         gbf = igbf.GABOR_FEAT()
-    else:
+    elif 0 == cmp(ft, 'lbp'):
         print 'feature type: LBP'
         gbf = ilbpf.LBP_FEAT()
+    elif 0 == cmp(ft, 'hog'):
+        print 'feature type: HOG'
+        gbf = ihogf.HOG_FEAT()
+    else:
+        print 'unknown feature type'
+        return 
 
     #1--folderA
     fvs, imgs = gbf.gen_folder(os.path.join(rootdir, folderA), 1000)
@@ -202,8 +217,8 @@ if __name__=="__main__":
             negnum_p = np.int64(f.readline().strip())
             ft = f.readline().strip()
         mklist.gen_dir_list(rootdir)
-        posnum = 10
-        negnum_p = 10
+        posnum = 8
+        negnum_p = 8
         DIST_A(rootdir, posdir, posnum, negnum_p,ft)
     elif len(sys.argv) == 5:
         ft = sys.argv[1]
