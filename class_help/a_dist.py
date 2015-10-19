@@ -35,7 +35,7 @@ def calc_distance_set(samples, templ, topN):
 #todir_root = c:
 #todir = 1
 #copy/rename image d:\a\a1.jpg to c:\1\[a]a1.jpg
-def copy_rename_jpgs(fromdir_root, fromdir, todir_root,todir, total):
+def copy_rename_jpgs(fromdir_root, fromdir, todir_root,todir, total,score):
     num = 0
     srcdir = os.path.join(fromdir_root, fromdir)
     for rdir,pdirs, names in os.walk(srcdir):
@@ -51,9 +51,9 @@ def copy_rename_jpgs(fromdir_root, fromdir, todir_root,todir, total):
             old = os.path.join(rdir, name)
             new = os.path.join(todir_root, todir)
             if 0 == cmp(fromdir, todir):
-                new = os.path.join(new,'A['+fromdir+']'+name)
+                new = os.path.join(new,'A'+str(score)+'['+fromdir+']'+name)
             else:
-                new = os.path.join(new,'B['+fromdir+']'+name)
+                new = os.path.join(new,'B'+str(score)+'['+fromdir+']'+name)
             shutil.copy(old,new)
             num += 1
             if num >= total:
@@ -148,8 +148,10 @@ def DIST_A(rootdir, posdir, posnum, negnum_p, ft):
     for pospath,negpaths in slist:
         print 'create viewset for ',pospath
         os.mkdir('out/'+pospath)
-        for negpath in negpaths.keys():
-            copy_rename_jpgs(rootdir, negpath, 'out\\', pospath, 4)         
+        negpaths = sorted(negpaths.iteritems(), key = lambda k:k[1],reverse=False)
+        for negpath,cnt in negpaths:
+            dist = np.int32(cnt*100)
+            copy_rename_jpgs(rootdir, negpath, 'out\\', pospath, 4,dist)         
     return 
 
 
@@ -209,17 +211,13 @@ def DIST_B(rootdir, folderA, folderB,ft):
 
 
 if __name__=="__main__":
-    if len(sys.argv) == 1:
-        with open('config.txt','r') as f:
-            rootdir = f.readline().strip()
-            posdir = f.readline().strip()
-            posnum = np.int64(f.readline().strip())
-            negnum_p = np.int64(f.readline().strip())
-            ft = f.readline().strip()
+    if len(sys.argv) == 3:
+        ft = sys.argv[1]
+        rootdir = sys.argv[2]
         mklist.gen_dir_list(rootdir)
         posnum = 8
         negnum_p = 8
-        DIST_A(rootdir, posdir, posnum, negnum_p,ft)
+        DIST_A(rootdir, "", posnum, negnum_p,ft)
     elif len(sys.argv) == 5:
         ft = sys.argv[1]
         rootdir = sys.argv[2]
