@@ -7,11 +7,27 @@ class CLF_SVM(object):
     def __init__(self, ft):
         self.fh = None
         self.clf = None
+        self.minmaxrange = []
         self.clfpath = 'CLF_SVM_'+ft+'.dat'
         if 0 == cmp(ft, 'lbp'):
             self.fh = feat_lbp.FEAT_LBP()
         else:
             print 'unknown feature type'
+
+    def normalization(self, samples):
+        if len(self.minmaxrange) == 0:
+            m0 = np.reshape(samples.min(0),(1,-1))
+            m1 = np.reshape(samples.max(0),(1,-1))
+            num = samples.shape[0]
+            m0 = np.tile(m0, (num,1))
+            m1 = np.tile(m1, (num,1))
+            ran = (m1 - m0) + 0.0001
+            self.minmaxrange = [m0,m1,ran]
+        m0 = self.minmaxrange[0]
+        m1 = self.minmaxrange[1]
+        ran = self.minmaxrange[2]
+        samples = (samples - m0) / ran
+        return samples
 
     def get_samples(self, folderpath):
         if self.fh is None:
@@ -24,11 +40,12 @@ class CLF_SVM(object):
     def predict(self, folderpath):
         if self.clf is None:
             with open(self.clfpath, 'rb') as f:
-                self.clf = pickle.load(f)
+                self.clf, self.minmaxrange = pickle.load(f)
         if self.clf is None:
             print 'clf is null'
             return
         tests,paths = self.get_samples(folderpath)
+        tests = self.normalization(tests)
         print 'test ', tests.shape
         prds = self.clf.predict(tests)
         pos = ""
@@ -53,6 +70,7 @@ class CLF_SVM(object):
         posnum = posinfo[0].shape[0]
         negnum = neginfo[0].shape[0]
         samples = np.vstack((posinfo[0], neginfo[0]))
+        samples = self.normalization(samples)
         paths = posinfo[1].extend(neginfo[1])
         labels = [1 for k in range(posnum)] + [0 for k in range(negnum)]
         self.clf = SVC(C=1.0,kernel='linear',verbose=True).fit(samples, labels)
@@ -67,7 +85,7 @@ class CLF_SVM(object):
         print 'TP :', TP ,'/',posnum
         print 'TN :', TN ,'/',negnum
         with open(self.clfpath, 'wb') as f:
-            pickle.dump(self.clf, f)
+            pickle.dump((self.clf,self.minmaxrange), f)
         return 
 
 def do_train(dataset, ft):

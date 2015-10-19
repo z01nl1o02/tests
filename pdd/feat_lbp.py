@@ -12,7 +12,7 @@ class FEAT_LBP(object):
         img = cv2.resize(img,std_sz)
         lbp = local_binary_pattern(img, 8, 1, 'uniform')
         fv = []
-        bins = np.arange(60)
+        bins = np.arange(59)
         for y in range(0, lbp.shape[0], 10):
             for x in range(0, lbp.shape[1], 10):
                 blk = lbp[y:y+10, x:x+10]
