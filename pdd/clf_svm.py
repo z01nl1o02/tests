@@ -18,14 +18,16 @@ class CLF_SVM(object):
         if len(self.minmaxrange) == 0:
             m0 = np.reshape(samples.min(0),(1,-1))
             m1 = np.reshape(samples.max(0),(1,-1))
-            num = samples.shape[0]
-            m0 = np.tile(m0, (num,1))
-            m1 = np.tile(m1, (num,1))
             ran = (m1 - m0) + 0.0001
             self.minmaxrange = [m0,m1,ran]
+
         m0 = self.minmaxrange[0]
-        m1 = self.minmaxrange[1]
         ran = self.minmaxrange[2]
+
+        num = samples.shape[0]
+        m0 = np.tile(m0, (num,1))
+        ran = np.tile(ran, (num,1))
+
         samples = (samples - m0) / ran
         return samples
 
@@ -48,11 +50,13 @@ class CLF_SVM(object):
         tests = self.normalization(tests)
         print 'test ', tests.shape
         prds = self.clf.predict(tests)
+        posnum = 0
         pos = ""
         neg = ""
         for prd, path in zip(prds, paths):
             if prd == 1:
                 pos += path + '\n'
+                posnum += 1
             else:
                 neg += path + '\n'
         with open('pos.txt', 'w') as f:
@@ -60,6 +64,7 @@ class CLF_SVM(object):
         with open('neg.txt', 'w') as f:
             f.writelines(neg)
 
+        print 'pos : neg = ', posnum, ':', len(prds) - posnum
         return
 
     def train(self, dataset):
