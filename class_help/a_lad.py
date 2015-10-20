@@ -5,6 +5,7 @@ from sklearn.decomposition import PCA
 import image_gabor_feature as igbf
 import image_lbp_feature as ilbpf
 import image_hog_feature as ihogf
+import image_dwt_feature as idwtf
 import mklist
 def LDA_A(rootdir, posdir, posnum, negnum_p, ft):
     pos = []
@@ -27,6 +28,9 @@ def LDA_A(rootdir, posdir, posnum, negnum_p, ft):
     elif 0 == cmp(ft, 'lbp'):
         print 'feature type: LBP'
         gbf = ilbpf.LBP_FEAT()
+    elif 0 == cmp(ft, 'dwt'):
+        print 'feature type: DWT'
+        gbf = idwtf.DWT_FEAT()
     else:
         print 'unknown feature type'
         return 
@@ -103,6 +107,9 @@ def LDA_B(rootdir, folderA, folderB, folderC,ft):
     elif 0 == cmp(ft, 'lbp'):
         print 'feature type: LBP'
         gbf = ilbpf.LBP_FEAT()
+    elif 0 == cmp(ft, 'dwt'):
+        print 'feature type: DWT'
+        gbf = idwtf.DWT_FEAT()
     else:
         print 'unknown feature type'
         return
@@ -122,6 +129,9 @@ def LDA_B(rootdir, folderA, folderB, folderC,ft):
     samples = np.array(pos + neg)
     labels = np.array(label0 + label1)
     imgs = imgspos + imgsneg
+
+
+    print 'before pca : ', samples.shape
     com_num = 300
     if com_num + 10 > len(imgs):
         com_num = len(imgs) - 10
