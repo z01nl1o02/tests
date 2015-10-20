@@ -38,7 +38,7 @@ class LBP_FEAT(object):
         img = self.crop_image(imgpath)
         if img is None:
             return None
-        img = cv2.GaussianBlur(img,(5,5),1)
+#        img = cv2.GaussianBlur(img,(5,5),1)
         feats = []
         feat = local_binary_pattern(img, 8, 1, 'uniform')
         feats.append(feat)
@@ -47,12 +47,12 @@ class LBP_FEAT(object):
 #        feat = local_binary_pattern(img, 8, 5, 'uniform')
 #        feats.append(feat)
         fv = []
-        bins = [k for k in range(60)]
+        bins = [k for k in range(59)]
         for feat in feats:
-            for y in range(0, feat.shape[0], 5):
-                for x in range(0, feat.shape[1],5):
-                    block = feat[y:y+5,x:x+5]
-                    h = np.histogram(block, bins)[0] / 25.0
+            for y in range(0, feat.shape[0], 10):
+                for x in range(0, feat.shape[1],10):
+                    block = feat[y:y+10,x:x+10]
+                    h = np.histogram(block, bins)[0] / 100.0
                     fv.extend(h)
         return fv
 
