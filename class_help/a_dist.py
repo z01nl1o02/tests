@@ -4,6 +4,7 @@ from sklearn.decomposition import PCA
 import image_gabor_feature as igbf
 import image_lbp_feature as ilbpf
 import image_hog_feature as ihogf
+import image_dwt_feature as idwtf
 import mklist
 #distance based image match
 
@@ -81,6 +82,9 @@ def DIST_A(rootdir, posdir, posnum, negnum_p, ft):
     elif 0 == cmp(ft, 'hog'):
         print 'feature type: HOG'
         gbf = ihogf.HOG_FEAT()
+    elif 0 == cmp(ft, 'dwt'):
+        print 'feature type: DWT'
+        gbf = idwtf.DWT_FEAT()
     else:
         print 'unknown feature type'
         return 
@@ -112,7 +116,7 @@ def DIST_A(rootdir, posdir, posnum, negnum_p, ft):
     clf = PCA(con_num)
     samples = clf.fit_transform(samples)
     print 'after pca : ', samples.shape
-    dists = calc_distance_set(samples, samples, posnum * 2)
+    dists = calc_distance_set(samples, samples, len(folders))
 
     smap = {}
     for k in range(samples.shape[0]):
@@ -172,6 +176,9 @@ def DIST_B(rootdir, folderA, folderB,ft):
     elif 0 == cmp(ft, 'hog'):
         print 'feature type: HOG'
         gbf = ihogf.HOG_FEAT()
+    elif 0 == cmp(ft, 'dwt'):
+        print 'feature type: DWT'
+        gbf = idwtf.DWT_FEAT()
     else:
         print 'unknown feature type'
         return 
