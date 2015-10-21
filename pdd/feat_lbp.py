@@ -20,18 +20,44 @@ class FEAT_LBP(object):
                 fv.extend(h)
         return fv
 
-    def folder_mode(self,rootpath):
+    def folder_mode(self,rootpath, count):
         fvs = []
         paths = []
-        for rdir, pdir, names in os.walk(rootpath):
+        bspaths = self.bootstrap(rootpath, count)
+        for name, fname in bspaths:
+            fv = self.image_mode(fname)
+            paths.append(name)
+            fvs.append(fv) 
+        return (fvs, paths)
+    def bootstrap(self, rootpath, count):
+        paths = []
+        for rdir,pdir,names in os.walk(rootpath):
             for name in names:
                 sname,ext = os.path.splitext(name)
                 if 0 != cmp(ext, '.jpg'):
                     continue
                 fname = os.path.join(rdir, name)
-                fv = self.image_mode(fname)
-                paths.append(name)
-                fvs.append(fv) 
-        return (fvs, paths)
-
-
+                paths.append((name,fname))
+        if count < 0:
+            bspaths = paths
+        else:
+            idxs = np.random.randint(len(paths), size = count)
+            bspaths = []
+            for k  in range(count):
+                idx = idxs[k]
+                bspaths.append(paths[idx])
+        return bspaths
+       
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+    

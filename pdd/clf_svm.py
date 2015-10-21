@@ -4,11 +4,11 @@ import feat_lbp
 from sklearn.svm import SVC
 
 class CLF_SVM(object):
-    def __init__(self, ft):
+    def __init__(self, ft, pf):
         self.fh = None
         self.clf = None
         self.minmaxrange = []
-        self.clfpath = 'CLF_SVM_'+ft+'.dat'
+        self.clfpath = 'CLF_SVM_'+ft+'_'+pf+'.dat'
         if 0 == cmp(ft, 'lbp'):
             self.fh = feat_lbp.FEAT_LBP()
         else:
@@ -31,11 +31,11 @@ class CLF_SVM(object):
         samples = (samples - m0) / ran
         return samples
 
-    def get_samples(self, folderpath):
+    def get_samples(self, folderpath,count):
         if self.fh is None:
             print 'null feature handle'
             return (None,None)
-        fvs, paths = self.fh.folder_mode(folderpath)
+        fvs, paths = self.fh.folder_mode(folderpath,count)
         fvs = np.array(fvs)
         return (fvs,paths)
 
@@ -46,31 +46,34 @@ class CLF_SVM(object):
         if self.clf is None:
             print 'clf is null'
             return
-        tests,paths = self.get_samples(folderpath)
+        tests,paths = self.get_samples(folderpath,-1)
         tests = self.normalization(tests)
         print 'test ', tests.shape
         prds = self.clf.predict(tests)
         posnum = 0
         pos = ""
         neg = ""
+        path2prd = {}
         for prd, path in zip(prds, paths):
             if prd == 1:
                 pos += path + '\n'
                 posnum += 1
+                path2prd[path] = 1
             else:
                 neg += path + '\n'
+                path2prd[path] = 0
         with open('pos.txt', 'w') as f:
             f.writelines(pos)
         with open('neg.txt', 'w') as f:
             f.writelines(neg)
 
         print 'pos : neg = ', posnum, ':', len(prds) - posnum
-        return
+        return path2prd
 
-    def train(self, dataset):
-        posinfo = self.get_samples(dataset + '/pos')
+    def train(self, dataset, count):
+        posinfo = self.get_samples(dataset + '/pos',count)
         print 'pos ', posinfo[0].shape
-        neginfo = self.get_samples(dataset + '/neg')
+        neginfo = self.get_samples(dataset + '/neg',count)
         print 'neg ', neginfo[0].shape
         posnum = posinfo[0].shape[0]
         negnum = neginfo[0].shape[0]
@@ -93,23 +96,39 @@ class CLF_SVM(object):
             pickle.dump((self.clf,self.minmaxrange), f)
         return 
 
-def do_train(dataset, ft):
-    clf = CLF_SVM(ft)
-    clf.train(dataset)
+def do_train_bagging(dataset, ft,modelnum):
+    for k in range(modelnum):
+        clf = CLF_SVM(ft,str(k))
+        clf.train(dataset,2000)
 
-def do_test(folderpath, ft):
-    clf = CLF_SVM(ft)
-    clf.predict(folderpath) 
+def do_test(folderpath, ft, modelnum):
+    path2prd = {} 
+    for k in range(modelnum):
+        clf = CLF_SVM(ft,str(k))
+        p2p = clf.predict(folderpath) 
+        for path in p2p.keys():
+            if path not in path2prd:
+                path2prd[path] = p2p[path]
+            else:
+                path2prd[path] += p2p[path]
+    posnum = 0
+    thresh = modelnum / 2.0
+    for path in path2prd.keys():
+        if path2prd[path] > thresh:
+            posnum += 1
+    print 'pos : ', posnum , ', neg: ' , len(path2prd) - posnum
 
 if __name__=="__main__":
-    if len(sys.argv) == 3 and 0 == cmp(sys.argv[1],'-train'):
+    if len(sys.argv) == 4 and 0 == cmp(sys.argv[1],'-train'):
         ft = sys.argv[2]
+        modelnum = np.int32(sys.argv[3])
         with open('config.txt', 'r') as f:
             dataset = f.readline().strip()
-        do_train(dataset, ft)
-    elif len(sys.argv) == 4 and 0 == cmp(sys.argv[1],'-test'):
+        do_train_bagging(dataset, ft,modelnum)
+    elif len(sys.argv) == 5 and 0 == cmp(sys.argv[1],'-test'):
         ft = sys.argv[2]
-        folderpath = sys.argv[3]
-        do_test(folderpath, ft)
+        modelnum = np.int32(sys.argv[3])
+        folderpath = sys.argv[4]
+        do_test(folderpath, ft,modelnum)
     else:
         print 'unknown option'
