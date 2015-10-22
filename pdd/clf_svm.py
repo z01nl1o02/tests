@@ -1,6 +1,7 @@
 import os,sys,pdb,cv2,pickle
 import numpy as np
 import feat_lbp
+import feat_hog
 from sklearn.svm import SVC
 
 class CLF_SVM(object):
@@ -10,7 +11,11 @@ class CLF_SVM(object):
         self.minmaxrange = []
         self.clfpath = 'CLF_SVM_'+ft+'_'+pf+'.dat'
         if 0 == cmp(ft, 'lbp'):
+            print "ft : LBP"
             self.fh = feat_lbp.FEAT_LBP()
+        elif 0 == cmp(ft, 'hog'):
+            print "ft : HOG"
+            self.fh = feat_hog.FEAT_HOG()
         else:
             print 'unknown feature type'
 
