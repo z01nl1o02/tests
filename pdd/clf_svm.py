@@ -3,21 +3,27 @@ import numpy as np
 import feat_lbp
 import feat_hog
 from sklearn.svm import SVC
+import multiprocessing as mp
 
 class CLF_SVM(object):
-    def __init__(self, ft, pf):
+    def __init__(self, ft, pf, verbose=False):
         self.fh = None
         self.clf = None
         self.minmaxrange = []
+        self.verbose = verbose
         self.clfpath = 'CLF_SVM_'+ft+'_'+pf+'.dat'
+        print self.clfpath
         if 0 == cmp(ft, 'lbp'):
-            print "ft : LBP"
+            if self.verbose == True:
+                print "ft : LBP"
             self.fh = feat_lbp.FEAT_LBP()
         elif 0 == cmp(ft, 'hog'):
-            print "ft : HOG"
+            if self.verbose == True:
+                print "ft : HOG"
             self.fh = feat_hog.FEAT_HOG()
         else:
-            print 'unknown feature type'
+            if self.verbose == True:
+                print 'unknown feature type'
 
     def normalization(self, samples):
         if len(self.minmaxrange) == 0:
@@ -38,7 +44,8 @@ class CLF_SVM(object):
 
     def get_samples(self, folderpath,count):
         if self.fh is None:
-            print 'null feature handle'
+            if self.verbose == True:
+                print 'null feature handle'
             return (None,None)
         fvs, paths = self.fh.folder_mode(folderpath,count)
         fvs = np.array(fvs)
@@ -49,11 +56,13 @@ class CLF_SVM(object):
             with open(self.clfpath, 'rb') as f:
                 self.clf, self.minmaxrange = pickle.load(f)
         if self.clf is None:
-            print 'clf is null'
+            if self.verbose == True:
+                print 'clf is null'
             return
         tests,paths = self.get_samples(folderpath,-1)
         tests = self.normalization(tests)
-        print 'test ', tests.shape
+        if self.verbose == True:
+            print 'test ', tests.shape
         prds = self.clf.predict(tests)
         posnum = 0
         pos = ""
@@ -71,14 +80,17 @@ class CLF_SVM(object):
             f.writelines(pos)
         with open('neg.txt', 'w') as f:
             f.writelines(neg)
-        print 'predict : ', len(prds), ',', posnum * 1.0 / len(prds)
+        if self.verbose == True:
+            print 'predict : ', len(prds), ',', posnum * 1.0 / len(prds)
         return path2prd
 
     def train(self, dataset, count):
         posinfo = self.get_samples(dataset + '/pos',count)
-        print 'pos ', posinfo[0].shape, ' ',
+        if self.verbose == True:
+            print 'pos ', posinfo[0].shape, ' ',
         neginfo = self.get_samples(dataset + '/neg',count)
-        print 'neg ', neginfo[0].shape
+        if self.verbose == True:
+            print 'neg ', neginfo[0].shape
         posnum = posinfo[0].shape[0]
         negnum = neginfo[0].shape[0]
         samples = np.vstack((posinfo[0], neginfo[0]))
@@ -94,17 +106,31 @@ class CLF_SVM(object):
                 TP += 1
             if prds[k] == 0 and labels[k] == 0:
                 TN += 1
-        print 'TP :', posnum ,',',TP * 1.0/posnum, ' ',
-        print 'TN :', negnum ,',',TN * 1.0/negnum
+        if self.verbose == True:
+            print 'TP :', posnum ,',',TP * 1.0/posnum, ' ',
+            print 'TN :', negnum ,',',TN * 1.0/negnum
         with open(self.clfpath, 'wb') as f:
             pickle.dump((self.clf,self.minmaxrange), f)
-        return 
+        return (self.clfpath, posnum, TP*1.0/posnum, negnum, TN*1.0/negnum)
+
+def do_train(dataset, ft, pf):
+    clf = CLF_SVM(ft,pf)
+    return clf.train(dataset,1000)
 
 def do_train_bagging(dataset, ft,modelnum):
+    mps = mp.Pool(3)
+    results = []
     for k in range(modelnum):
-        clf = CLF_SVM(ft,str(k))
-        clf.train(dataset,1000)
-
+        results.append(mps.apply_async(do_train, (dataset, ft, str(k))))
+    mps.close()
+    mps.join()
+    print 'train result ....'
+    for res in results:
+        res = res.get()
+        for s in res:
+            print s, ',',
+        print ' '
+    return
 def do_test(folderpath, ft, modelnum):
     path2prd = {} 
     for k in range(modelnum):
