@@ -71,13 +71,12 @@ class CLF_SVM(object):
             f.writelines(pos)
         with open('neg.txt', 'w') as f:
             f.writelines(neg)
-
-        print 'pos : neg = ', posnum, ':', len(prds) - posnum
+        print 'predict : ', len(prds), ',', posnum * 1.0 / len(prds)
         return path2prd
 
     def train(self, dataset, count):
         posinfo = self.get_samples(dataset + '/pos',count)
-        print 'pos ', posinfo[0].shape
+        print 'pos ', posinfo[0].shape, ' ',
         neginfo = self.get_samples(dataset + '/neg',count)
         print 'neg ', neginfo[0].shape
         posnum = posinfo[0].shape[0]
@@ -86,7 +85,7 @@ class CLF_SVM(object):
         samples = self.normalization(samples)
         paths = posinfo[1].extend(neginfo[1])
         labels = [1 for k in range(posnum)] + [0 for k in range(negnum)]
-        self.clf = SVC(C=1.0,kernel='linear',verbose=True).fit(samples, labels)
+        self.clf = SVC(C=1.0,kernel='linear',verbose=False).fit(samples, labels)
         prds = self.clf.predict(samples)
         TP = 0
         TN = 0
@@ -95,8 +94,8 @@ class CLF_SVM(object):
                 TP += 1
             if prds[k] == 0 and labels[k] == 0:
                 TN += 1
-        print 'TP :', TP ,'/',posnum
-        print 'TN :', TN ,'/',negnum
+        print 'TP :', posnum ,',',TP * 1.0/posnum, ' ',
+        print 'TN :', negnum ,',',TN * 1.0/negnum
         with open(self.clfpath, 'wb') as f:
             pickle.dump((self.clf,self.minmaxrange), f)
         return 
@@ -104,7 +103,7 @@ class CLF_SVM(object):
 def do_train_bagging(dataset, ft,modelnum):
     for k in range(modelnum):
         clf = CLF_SVM(ft,str(k))
-        clf.train(dataset,2000)
+        clf.train(dataset,1000)
 
 def do_test(folderpath, ft, modelnum):
     path2prd = {} 
@@ -121,7 +120,7 @@ def do_test(folderpath, ft, modelnum):
     for path in path2prd.keys():
         if path2prd[path] > thresh:
             posnum += 1
-    print 'pos : ', posnum , ', neg: ' , len(path2prd) - posnum
+    print 'predict all : ', len(path2prd) , ',' , posnum * 1.0 / len(path2prd)
 
 if __name__=="__main__":
     if len(sys.argv) == 4 and 0 == cmp(sys.argv[1],'-train'):
