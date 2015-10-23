@@ -12,11 +12,15 @@ class FEAT_LBP(object):
         img = cv2.resize(img,std_sz)
         lbp = local_binary_pattern(img, 8, 1, 'uniform')
         fv = []
+        xnum = 3
+        ynum = 3
+        blkw = img.shape[1] / xnum
+        blkh = img.shape[0] / ynum
         bins = np.arange(59)
-        for y in range(0, lbp.shape[0], 10):
-            for x in range(0, lbp.shape[1], 10):
-                blk = lbp[y:y+10, x:x+10]
-                h = np.histogram(blk, bins)[0]/100.0
+        for y in range(0, lbp.shape[0], blkh):
+            for x in range(0, lbp.shape[1], blkw):
+                blk = lbp[y:y+blkh, x:x+blkw]
+                h = np.histogram(blk, bins)[0] * 1.0 / (blkw * blkh)
                 fv.extend(h)
         return fv
 
