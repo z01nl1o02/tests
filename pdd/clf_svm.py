@@ -11,20 +11,9 @@ class CLF_SVM(object):
         self.clf = None
         self.minmaxrange = []
         self.verbose = verbose
-        self.clfpath = 'CLF_SVM_'+ft+'_'+pf+'.dat'
-        print self.clfpath
-        if 0 == cmp(ft, 'lbp'):
-            if self.verbose == True:
-                print "ft : LBP"
-            self.fh = feat_lbp.FEAT_LBP()
-        elif 0 == cmp(ft, 'hog'):
-            if self.verbose == True:
-                print "ft : HOG"
-            self.fh = feat_hog.FEAT_HOG()
-        else:
-            if self.verbose == True:
-                print 'unknown feature type'
-
+        self.ft = ft 
+        self.clfpath = 'CLF_SVM_'+pf+'.dat'
+        
     def normalization(self, samples):
         if len(self.minmaxrange) == 0:
             m0 = np.reshape(samples.min(0),(1,-1))
@@ -44,9 +33,15 @@ class CLF_SVM(object):
 
     def get_samples(self, folderpath,count):
         if self.fh is None:
-            if self.verbose == True:
-                print 'null feature handle'
-            return (None,None)
+            if 0 == cmp(self.ft, 'lbp'):
+                self.fh = feat_lbp.FEAT_LBP()
+            elif 0 == cmp(self.ft, 'hog'):
+                self.fh = feat_hog.FEAT_HOG()
+            else:
+                if self.verbose == True:
+                    print 'unknown feature type'
+                    return (None,None)
+
         fvs, paths = self.fh.folder_mode(folderpath,count)
         fvs = np.array(fvs)
         return (fvs,paths)
@@ -54,7 +49,7 @@ class CLF_SVM(object):
     def predict(self, folderpath):
         if self.clf is None:
             with open(self.clfpath, 'rb') as f:
-                self.clf, self.minmaxrange = pickle.load(f)
+                self.clf, self.minmaxrange, self.ft = pickle.load(f)
         if self.clf is None:
             if self.verbose == True:
                 print 'clf is null'
@@ -81,7 +76,7 @@ class CLF_SVM(object):
         with open('neg.txt', 'w') as f:
             f.writelines(neg)
         if self.verbose == True:
-            print 'predict : ', len(prds), ',', posnum * 1.0 / len(prds)
+            print 'predict with ', self.clfpath, '(', self.ft, '):', len(prds), ',', posnum * 1.0 / len(prds)
         return path2prd
 
     def train(self, dataset, count):
@@ -110,12 +105,12 @@ class CLF_SVM(object):
             print 'TP :', posnum ,',',TP * 1.0/posnum, ' ',
             print 'TN :', negnum ,',',TN * 1.0/negnum
         with open(self.clfpath, 'wb') as f:
-            pickle.dump((self.clf,self.minmaxrange), f)
-        return (self.clfpath, posnum, TP*1.0/posnum, negnum, TN*1.0/negnum)
+            pickle.dump((self.clf,self.minmaxrange, self.ft), f)
+        return (self.clfpath, self.ft, posnum, TP*1.0/posnum, negnum, TN*1.0/negnum)
 
 def do_train(dataset, ft, pf):
     clf = CLF_SVM(ft,pf)
-    return clf.train(dataset,1000)
+    return clf.train(dataset,300)
 
 def do_train_bagging(dataset, ft,modelnum):
     mps = mp.Pool(3)
@@ -134,7 +129,7 @@ def do_train_bagging(dataset, ft,modelnum):
 def do_test(folderpath, ft, modelnum):
     path2prd = {} 
     for k in range(modelnum):
-        clf = CLF_SVM(ft,str(k))
+        clf = CLF_SVM(ft,str(k), True)
         p2p = clf.predict(folderpath) 
         for path in p2p.keys():
             if path not in path2prd:
