@@ -6,6 +6,7 @@ import image_gabor_feature as igbf
 import image_lbp_feature as ilbpf
 import image_hog_feature as ihogf
 import image_dwt_feature as idwtf
+import image_yuv_feature as iyuvf
 import mklist
 def LDA_A(rootdir, posdir, posnum, negnum_p, ft):
     pos = []
@@ -31,6 +32,9 @@ def LDA_A(rootdir, posdir, posnum, negnum_p, ft):
     elif 0 == cmp(ft, 'dwt'):
         print 'feature type: DWT'
         gbf = idwtf.DWT_FEAT()
+    elif 0 == cmp(ft, 'yuv'):
+        print 'feature type: YUV'
+        gbf = iyuvf.YUV_FEAT()
     else:
         print 'unknown feature type'
         return 
@@ -110,6 +114,9 @@ def LDA_B(rootdir, folderA, folderB, folderC,ft):
     elif 0 == cmp(ft, 'dwt'):
         print 'feature type: DWT'
         gbf = idwtf.DWT_FEAT()
+    elif 0 == cmp(ft, 'yuv'):
+        print 'feature type: YUV'
+        gbf = iyuvf.YUV_FEAT()
     else:
         print 'unknown feature type'
         return
