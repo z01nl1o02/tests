@@ -2,6 +2,7 @@ import os,sys,pdb,cv2,pickle
 import numpy as np
 import feat_lbp
 import feat_hog
+import feat_yuv
 from sklearn.svm import SVC
 import multiprocessing as mp
 
@@ -37,6 +38,8 @@ class CLF_SVM(object):
                 self.fh = feat_lbp.FEAT_LBP()
             elif 0 == cmp(self.ft, 'hog'):
                 self.fh = feat_hog.FEAT_HOG()
+            elif 0 == cmp(self.ft, 'yuv'):
+                self.fh = feat_yuv.FEAT_YUV()
             else:
                 if self.verbose == True:
                     print 'unknown feature type'
@@ -142,11 +145,10 @@ def do_test(folderpath, ft, modelnum):
     print 'predict all : ', len(path2prd) , ',' , posnum * 1.0 / len(path2prd)
 
 if __name__=="__main__":
-    if len(sys.argv) == 4 and 0 == cmp(sys.argv[1],'-train'):
+    if len(sys.argv) == 5 and 0 == cmp(sys.argv[1],'-train'):
         ft = sys.argv[2]
         modelnum = np.int32(sys.argv[3])
-        with open('config.txt', 'r') as f:
-            dataset = f.readline().strip()
+        dataset = sys.argv[4]
         do_train_bagging(dataset, ft,modelnum)
     elif len(sys.argv) == 5 and 0 == cmp(sys.argv[1],'-test'):
         ft = sys.argv[2]
