@@ -16,8 +16,8 @@ class FEAT_YUV(object):
                 Cr = img[y,x,1] / 8
                 Cb = img[y,x,2] / 8
                 fv[Y * 32 + Cb] += 1
-                fv[Y * 32 + Cr] += 1
-                fv[Cr * 32 + Cb] += 1
+                fv[Y * 32 + Cr+1024] += 1
+                fv[Cr * 32 + Cb + 2048] += 1
         sz = img.shape[0] * img.shape[1]
         for k in range(len(fv)):
             fv[k] = fv[k] * 1.0 / sz
