@@ -56,8 +56,6 @@ class CLF_SVM(object):
             return
         tests,paths = self.get_samples(folderpath,-1)
         tests = self.normalization(tests)
-        if self.verbose == True:
-            print 'test ', tests.shape
         prds = self.clf.predict(tests)
         posnum = 0
         pos = ""
@@ -76,7 +74,7 @@ class CLF_SVM(object):
         with open('neg.txt', 'w') as f:
             f.writelines(neg)
         if self.verbose == True:
-            print 'predict with ', self.clfpath, '(', self.ft, '):', len(prds), ',', posnum * 1.0 / len(prds)
+            print 'predict with ', self.clfpath, '(', self.ft, '):', tests.shape, posnum * 1.0 / len(prds)
         return path2prd
 
     def train(self, dataset, count):
@@ -110,7 +108,7 @@ class CLF_SVM(object):
 
 def do_train(dataset, ft, pf):
     clf = CLF_SVM(ft,pf)
-    return clf.train(dataset,300)
+    return clf.train(dataset,512)
 
 def do_train_bagging(dataset, ft,modelnum):
     mps = mp.Pool(3)
@@ -137,7 +135,7 @@ def do_test(folderpath, ft, modelnum):
             else:
                 path2prd[path] += p2p[path]
     posnum = 0
-    thresh = modelnum / 2.0
+    thresh = modelnum * 0.75
     for path in path2prd.keys():
         if path2prd[path] > thresh:
             posnum += 1
