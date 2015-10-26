@@ -11,7 +11,8 @@ class FEAT_HOG(object):
             print imagepath + " is null"
             return (None, None)
         std_sz = (64,128) #can't set winsize for hog so size here is unchangable!!!
-        img = cv2.resize(img,std_sz)
+        img = cv2.blur(img,(3,3),0.5)
+        img = cv2.resize(img,std_sz,interpolation=cv2.cv.CV_INTER_LINEAR)
         feat = self.hog.compute(img)
         fv = np.reshape(feat, (1,-1)).tolist()[0]
         return fv
