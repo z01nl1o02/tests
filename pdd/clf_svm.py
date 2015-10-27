@@ -93,7 +93,8 @@ class CLF_SVM(object):
         samples = self.normalization(samples)
         paths = posinfo[1].extend(neginfo[1])
         labels = [1 for k in range(posnum)] + [0 for k in range(negnum)]
-        self.clf = SVC(C=1.0,kernel='linear',verbose=False).fit(samples, labels)
+        #self.clf = SVC(C=0.0125,kernel='linear',verbose=False).fit(samples, labels)
+        self.clf = SVC(C=2048,kernel='linear',verbose=False).fit(samples, labels)
         prds = self.clf.predict(samples)
         TP = 0
         TN = 0
