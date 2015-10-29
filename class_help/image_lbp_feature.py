@@ -49,10 +49,12 @@ class LBP_FEAT(object):
         fv = []
         bins = [k for k in range(59)]
         for feat in feats:
-            for y in range(0, feat.shape[0], 10):
-                for x in range(0, feat.shape[1],10):
-                    block = feat[y:y+10,x:x+10]
-                    h = np.histogram(block, bins)[0] / 100.0
+            xstep = feat.shape[1] / 3
+            ystep = feat.shape[0] / 3
+            for y in range(0, feat.shape[0], ystep):
+                for x in range(0, feat.shape[1],xstep):
+                    block = feat[y:y+ystep,x:x+xstep]
+                    h = np.histogram(block, bins)[0] * 1.0 / (xstep * ystep)
                     fv.extend(h)
         return fv
 
