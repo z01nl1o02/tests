@@ -4,6 +4,8 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 import image_gabor_feature as igbf
 import image_lbp_feature as ilbpf
+import image_hog_feature as ihogf
+import image_dwt_feature as  idwtf
 
 def KMeans_A(rootdir,ft):
     pos = []
@@ -14,6 +16,12 @@ def KMeans_A(rootdir,ft):
     elif 0 == cmp(ft, 'gabor'):
         print "ft : GABOR"
         gbf = igbf.GABOR_FEAT()
+    elif 0 == cmp(ft, 'hog'):
+        print 'ft : HOG'
+        gbf = ihogf.HOG_FEAT()
+    elif 0 == cmp(ft, 'dwt'):
+        print 'ft : DWT'
+        gbf = idwtf.DWT_FEAT()
     else:
         print 'unknown ft'
         return 
