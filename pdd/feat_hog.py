@@ -3,14 +3,14 @@ import numpy as np
 
 class FEAT_HOG(object):
     def __init__(self):
-        self.hog = cv2.HOGDescriptor()
+        self.hog = cv2.HOGDescriptor((64,64),(16,16),(8,8),(8,8),9)
 
     def image_mode(self,imagepath):
         img = cv2.imread(imagepath,0)
         if img is None:
             print imagepath + " is null"
             return (None, None)
-        std_sz = (64,128) #can't set winsize for hog so size here is unchangable!!!
+        std_sz = (64,64)
         img = cv2.blur(img,(3,3),0.5)
         img = cv2.resize(img,std_sz,interpolation=cv2.cv.CV_INTER_LINEAR)
         feat = self.hog.compute(img)
@@ -44,7 +44,10 @@ class FEAT_HOG(object):
                 idx = idxs[k]
                 bspaths.append(paths[idx])
         return bspaths
-       
+
+if __name__=="__main__":
+    fv = FEAT_HOG().image_mode('1.jpg')
+    print len(fv)
    
    
    
