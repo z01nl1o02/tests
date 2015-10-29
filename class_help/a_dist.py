@@ -116,7 +116,8 @@ def DIST_A(rootdir, posdir, posnum, negnum_p, ft):
     clf = PCA(con_num)
     samples = clf.fit_transform(samples)
     print 'after pca : ', samples.shape
-    dists = calc_distance_set(samples, samples, len(folders))
+    topN = posnum * 3
+    dists = calc_distance_set(samples, samples,topN)
 
     smap = {}
     for k in range(samples.shape[0]):
@@ -201,7 +202,7 @@ def DIST_B(rootdir, folderA, folderB,ft):
     clf_pca = PCA(com_num)
     samples = clf_pca.fit_transform(samples)
     print 'after pca : ', samples.shape
-    dists = calc_distance_set(samples[0:len(pos),:], samples[len(pos):,:],5)
+    dists = calc_distance_set(samples[0:len(pos),:], samples[len(pos):,:],8)
 
     templist = []
     for dist in dists:
