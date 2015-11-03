@@ -3,6 +3,7 @@ import numpy as np
 import feat_lbp
 import feat_hog
 import feat_yuv
+import feat_gabor
 from sklearn.svm import SVC
 import multiprocessing as mp
 
@@ -40,6 +41,8 @@ class CLF_SVM(object):
                 self.fh = feat_hog.FEAT_HOG()
             elif 0 == cmp(self.ft, 'yuv'):
                 self.fh = feat_yuv.FEAT_YUV()
+            elif 0 == cmp(self.ft, 'gabor'):
+                self.fh = feat_gabor.FEAT_GABOR()
             else:
                 if self.verbose == True:
                     print 'unknown feature type'
