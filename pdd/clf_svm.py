@@ -91,7 +91,8 @@ class CLF_SVM(object):
         negnum = neginfo[0].shape[0]
         samples = np.vstack((posinfo[0], neginfo[0]))
         samples = self.normalization(samples)
-        paths = posinfo[1].extend(neginfo[1])
+        #paths = posinfo[1].extend(neginfo[1]) 
+        paths = posinfo[1]
         labels = [1 for k in range(posnum)] + [0 for k in range(negnum)]
         #self.clf = SVC(C=0.0125,kernel='linear',verbose=False).fit(samples, labels)
         self.clf = SVC(C=2048,kernel='linear',verbose=False).fit(samples, labels)
