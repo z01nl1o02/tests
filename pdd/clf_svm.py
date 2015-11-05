@@ -147,6 +147,21 @@ def do_test(folderpath, ft, modelnum):
     for path in path2prd.keys():
         if path2prd[path] > thresh:
             posnum += 1
+            path2prd[path] = 1
+        else:
+            path2prd[path] = 0
+
+    posline = ""
+    negline = ""
+    for path in path2prd.keys():
+        if path2prd[path] == 1:
+            posline += path + '\n'
+        else:
+            negline += path + '\n'
+    with open('neg.txt','w') as f:
+        f.writelines(negline)
+    with open('pos.txt','w') as f:
+        f.writelines(posline)
     print 'predict all : ', len(path2prd) , ',' , posnum * 1.0 / len(path2prd)
 
 if __name__=="__main__":
