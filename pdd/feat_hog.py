@@ -22,24 +22,15 @@ class FEAT_HOG(object):
         fv = np.reshape(feat, (1,-1)).tolist()[0]
         return fv
 
-    def folder_mode(self,rootpath, count):
+    def folder_mode(self,paths, count):
         fvs = []
-        paths = []
-        bspaths = self.bootstrap(rootpath, count)
-        for name, fname in bspaths:
+        bspaths = self.bootstrap(paths, count)
+        for fname in bspaths:
             fv = self.image_mode(fname)
-            paths.append(name)
             fvs.append(fv) 
-        return (fvs, paths)
-    def bootstrap(self, rootpath, count):
-        paths = []
-        for rdir,pdir,names in os.walk(rootpath):
-            for name in names:
-                sname,ext = os.path.splitext(name)
-                if 0 != cmp(ext, '.jpg'):
-                    continue
-                fname = os.path.join(rdir, name)
-                paths.append((name,fname))
+        return (fvs, bspaths)
+
+    def bootstrap(self, paths,count):
         if count < 0:
             bspaths = paths
         else:
