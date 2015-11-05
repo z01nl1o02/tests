@@ -179,6 +179,43 @@ def do_test(paths, ft, modelnum,modeldir):
     with open('pos.txt','w') as f:
         f.writelines(posline)
     print 'predict all : ', len(path2prd) , ',' , posnum * 1.0 / len(path2prd)
+    return path2prd
+
+def boost_train(dataset, ft, modelnum):
+    pospaths = scan_folder(dataset + '\\pos', '.jpg')
+    negpaths = scan_folder(dataset + '\\neg', '.jpg')
+
+    try:
+        os.mkdir('s1')
+        os.mkdir('s2')
+    except Exception, e:
+        print 'mkdir : ', e
+    do_train_bagging(pospaths, negpaths, ft, modelnum, 's1')
+    path2prd = do_test(negpaths, ft, modelnum, 's1')
+    negpaths = []
+    for p in path2prd.keys():
+        if path2prd[p] == 1:
+            negpaths.append(p)
+    do_train_bagging(pospaths, negpaths, ft, modelnum, 's2')
+    return
+    
+def boost_test(sampledir, ft, modelnum):
+    paths = scan_folder(sampledir, '.jpg')
+    total = len(paths)
+    path2prd = do_test(paths, ft, modelnum, 's1')
+    pa1 = 0
+    paths = []
+    for p in path2prd.keys():
+        if path2prd[p] == 1:
+            pa1 += 1
+            paths.append(p)
+
+    path2prd = do_test(paths, ft, modelnum, 's2')
+    pa2 = 0
+    for p in path2prd.keys():
+        if path2prd[p] == 1:
+            pa2 += 1
+    print 'predictb ', total, ' ', pa1, ' ', pa1 * 1.0 / total, ' ', pa2, ' ', pa2 * 1.0 / total
 
 if __name__=="__main__":
     if len(sys.argv) == 6 and 0 == cmp(sys.argv[1],'-train'):
@@ -196,5 +233,15 @@ if __name__=="__main__":
         folderpath = sys.argv[5]
         paths = scan_folder(folderpath,'.jpg')
         do_test(paths, ft, modelnum,modeldir)
+    elif len(sys.argv) == 5 and 0 == cmp(sys.argv[1], '-trainb'):
+        ft = sys.argv[2]
+        modelnum = np.int32(sys.argv[3])
+        dataset = sys.argv[4] 
+        boost_train(dataset, ft, modelnum)
+    elif len(sys.argv) == 5 and 0 == cmp(sys.argv[1], '-testb'):
+        ft = sys.argv[2]
+        modelnum = np.int32(sys.argv[3])
+        dataset = sys.argv[4] 
+        boost_test(dataset, ft, modelnum)
     else:
         print 'unknown option'
