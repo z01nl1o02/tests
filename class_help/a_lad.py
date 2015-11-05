@@ -62,8 +62,8 @@ def LDA_A(rootdir, posdir, posnum, negnum_p, ft):
     labels = np.array(label0 + label1)
     paths = pathpos + pathneg
     imgs = imgspos + imgsneg
-    com_num = np.minimum(300, samples.shape[0] - 10)
-    clf = PCA(com_num)
+    #com_num = np.minimum(300, samples.shape[0] - 10)
+    clf = PCA(0.98)
     samples = clf.fit_transform(samples)
     print 'after pca : ', samples.shape
     clf = LDA()
@@ -139,10 +139,10 @@ def LDA_B(rootdir, folderA, folderB, folderC,ft):
 
 
     print 'before pca : ', samples.shape
-    com_num = 300
-    if com_num + 10 > len(imgs):
-        com_num = len(imgs) - 10
-    clf_pca = PCA(com_num)
+   # com_numx = 300
+   # if com_numx + 10 > len(imgs):
+   #     com_numx = len(imgs) - 10
+    clf_pca = PCA(0.95)
     samples = clf_pca.fit_transform(samples)
     print 'after pca : ', samples.shape
     clf_lda = LDA()

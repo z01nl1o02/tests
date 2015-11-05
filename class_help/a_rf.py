@@ -65,7 +65,7 @@ def RF_A(rootdir, posdir, posnum, negnum_p, ft):
     imgs = imgspos + imgsneg
     com_num = np.minimum(300, samples.shape[0] - 10)
     clf = PCA(com_num)
-#    samples = clf.fit_transform(samples)
+    samples = clf.fit_transform(samples)
     print 'after pca : ', samples.shape
     clf = RandomForestClassifier()
     clf.fit(samples,labels)
@@ -74,7 +74,7 @@ def RF_A(rootdir, posdir, posnum, negnum_p, ft):
 
     for k in range(len(paths)):
         X.append((paths[k], cnf[k], imgs[k]))
-    X = sorted(X, key = lambda a : a[1])
+    X = sorted(X, key = lambda a : a[1], reverse=True)
     line = ""
     lineA = "" #sometimes, the positive set is split into two parts
     lineB = ""
@@ -143,8 +143,8 @@ def RF_B(rootdir, folderA, folderB, folderC,ft):
     com_num = 300
     if com_num + 10 > len(imgs):
         com_num = len(imgs) - 10
-    clf_pca = PCA(com_num)
-#    samples = clf_pca.fit_transform(samples)
+    clf_pca = PCA(0.95)
+    samples = clf_pca.fit_transform(samples)
     print 'after pca : ', samples.shape
     clf_rf = RandomForestClassifier()
     clf_rf.fit(samples,labels)
@@ -152,7 +152,7 @@ def RF_B(rootdir, folderA, folderB, folderC,ft):
     #4--predict
     fvs, imgs = gbf.gen_folder(os.path.join(rootdir, folderC), 100000)
     samples = np.array(fvs) 
-#    samples = clf_pca.transform(samples)
+    samples = clf_pca.transform(samples)
     cnf = clf_rf.predict(samples)
     X = []
     for k in range(len(imgs)):
