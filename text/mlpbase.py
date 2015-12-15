@@ -52,6 +52,7 @@ class MLP_PROXY(object):
         self._train = None
         self._predict = None
         self._cost = None
+        self._minmax = None
         self._modelpath = modelpath
     def gradient_updates_momentum(self,cost, params, learning_rate, momentum):
         assert momentum < 1 and momentum >= 0
@@ -112,6 +113,36 @@ class MLP_PROXY(object):
         targets = np.transpose(output)
         return targets
 
+    def pre_normalization(self, samples):
+        m0 = samples[0,:]
+        m1 = samples[0,:]
+        for k in range(1,samples.shape[0]):
+            m0 = np.minimum(samples[k,:],m0)
+            m1 = np.maximum(samples[k,:],m1)
+        self._minmax = (m0,m1)
+        return
+
+    def normalization(self, samples, u=1, l=-1):
+        if None == self._minmax:
+            return None
+        m0,m1 = self._minmax
+        rng = m1 - m0
+        tmp = np.ones(rng.shape)
+        for k in range(len(rng)):
+            if rng[k] < 0.001:
+                rng[k] = 1
+                tmp[k] = 0
+        ratio = tmp / rng
+        for k in range(samples.shape[0]):
+            feat = samples[k,:]
+            feat = (feat - m0) * ratio * (u - l) + l
+            idx = feat>u
+            feat[idx] = u
+            idx = feat<l
+            feat[idx] = l
+            samples[k,:] = feat
+        return samples
+        
     def shuffle(self, samples, targets):
        totalnum = samples.shape[0]
        idx = range(totalnum)
@@ -158,14 +189,14 @@ class MLP_PROXY(object):
         if None == self._modelpath:
             return -1
         with open(self._modelpath, 'wb') as f:
-            pickle.dump((self._cost, self._train, self._predict), f)
+            pickle.dump((self._cost, self._train, self._predict, self._minmax), f)
         return 0
 
     def load(self):
         if None == self._modelpath:
             return -1
         with open(self._modelpath, 'rb') as f:
-            self._cost, self._train, self._predict = pickle.load(f)
+            self._cost, self._train, self._predict, self._minmax = pickle.load(f)
         return 0
 
 

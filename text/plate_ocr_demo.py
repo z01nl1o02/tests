@@ -74,6 +74,11 @@ def demo(rootdir):
     insize = samples.shape[1]
     mlp.create([insize, 64, outsize])
     print 'train ', samples.shape, ',', targets.shape
+
+    #normalization
+    mlp.pre_normalization(samples)
+    samples = mlp.normalization(samples)
+
     mlp.train(samples, targets,1000)
 
     mlp.save()
@@ -81,6 +86,8 @@ def demo(rootdir):
     print 'predict...'
     feats, target_list0 = load_all_sample(os.path.join(rootdir, 'test'))
     samples = np.array(feats)
+    #norm
+    samples = mlp.normalization(samples)
     targets = mlp.predict(samples)
     target_list1 = mlp.target_mat2vec(targets,outsize,-1)
     hit = 0
