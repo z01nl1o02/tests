@@ -29,7 +29,7 @@ class FEAT(object):
             for layer in layers:
                 for y in range(0, layer.shape[0], stepy):
                     for x in range(0, layer.shape[1], stepx):
-                        feat.append( layer[y:y+stepy, x:x+stepx].mean())
+                        feat.append( layer[y:y+stepy, x:x+stepx].mean() / 255.0)
         except Exception, e:
             feat = None
             print 'exception :', e ,':',imgpath
@@ -74,18 +74,20 @@ def demo(rootdir):
     insize = samples.shape[1]
     mlp.create([insize, 64, outsize])
     print 'train ', samples.shape, ',', targets.shape
-    mlp.train(samples, targets)
+    mlp.train(samples, targets,1000)
 
+    mlp.save()
+    mlp.load()
     print 'predict...'
     feats, target_list0 = load_all_sample(os.path.join(rootdir, 'test'))
     samples = np.array(feats)
     targets = mlp.predict(samples)
-    target_list1 = mlp.target_mat2vec(targets,outsize)
+    target_list1 = mlp.target_mat2vec(targets,outsize,-1)
     hit = 0
     for a,b in zip(target_list0, target_list1):
         if len(a) == len(b) and len(a) == 1 and a[0] == b[0]:
             hit += 1
-    print len(target_list1), ',', hit, ',', hit * 1.0 / len(target_list) 
+    print len(target_list1), ',', hit, ',', hit * 1.0 / len(target_list1) 
 
 if __name__=='__main__':
     demo(sys.argv[1])

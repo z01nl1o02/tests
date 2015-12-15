@@ -62,13 +62,13 @@ class MLP_PROXY(object):
             updates.append((param_update, momentum * param_update + (1. - momentum)*T.grad(cost, param)))
         return updates
 
-    def create(self, layer_sizes, learning_rate = 0.01, momentum = 0.9):
+    def create(self, layer_sizes, learning_rate = 0.01, momentum = 0.6):
         W_init = []
         b_init = []
         activations = []
         for n_input, n_output in zip(layer_sizes[:-1], layer_sizes[1:]):
             W_init.append(np.random.randn(n_output, n_input))
-            b_init.append(np.ones(n_output))
+            b_init.append(np.random.randn(n_output))
             activations.append(T.nnet.sigmoid)
         mlp = MLP(W_init, b_init, activations)
         mlp_input = T.matrix('mlp_input')
@@ -78,7 +78,7 @@ class MLP_PROXY(object):
         self._predict = theano.function([mlp_input],  mlp.output(mlp_input))
         return
 
-    def train(self,samples, targets, max_iteration=5000, min_cost = 0.1):
+    def train(self,samples, targets, max_iteration=5000, min_cost = 0.01):
         #samples and targets : (samples num) X (feature dimenstion)
         iteration = 0
         samplesT = np.transpose(samples) #W*x + b
@@ -101,7 +101,7 @@ class MLP_PROXY(object):
                 total += batchsize
             
             if (1+iteration)% echostep == 0: 
-                print iteration, ',', cost
+                print iteration + 1, ',', cost
             if cost < min_cost:
                 break
             iteration += 1
@@ -137,25 +137,34 @@ class MLP_PROXY(object):
 
     def target_mat2vec(self, targets, labelnum, thresh = 0.5):
         target_list = []
-        for k in range(targets.shape[0]):
-            l = []
-            for j in range(targets.shape[1]):
-                if targets[k,j] >= thresh:
-                    l.append(j)
-            target_list.append(l)
+        if thresh > 0:
+            for k in range(targets.shape[0]):
+                l = []
+                for j in range(targets.shape[1]):
+                    if targets[k,j] >= thresh:
+                        l.append(j)
+                target_list.append(l)
+        else: #top value
+            for k in range(targets.shape[0]):
+                l = []
+                m1 = targets[k,:].max()
+                for j in range(targets.shape[1]):
+                    if np.abs(targets[k,j] - m1) < 0.01:
+                        l.append(j)
+                target_list.append(l)
         return target_list 
         
     def save(self):
         if None == self._modelpath:
             return -1
         with open(self._modelpath, 'wb') as f:
-            pickle.dump((self._cost, self._train, _self._predict), f)
+            pickle.dump((self._cost, self._train, self._predict), f)
         return 0
 
     def load(self):
         if None == self._modelpath:
             return -1
-        with open(self._modelpath, 'wb') as f:
+        with open(self._modelpath, 'rb') as f:
             self._cost, self._train, self._predict = pickle.load(f)
         return 0
 
