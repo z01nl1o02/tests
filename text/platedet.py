@@ -18,7 +18,7 @@ def gen_feat(imgpath):
             cy = img[ys,xs,0].mean()
             cu = img[ys,xs,1].mean()
             cv = img[ys,xs,2].mean()       
-            ce = edge[ys,xs].mean() * 1.0 / edgemean
+            ce = edge[ys,xs].mean() * 1.0 / (edgemean + 0.01)
             feat.extend([cy,cu,cv,ce])
     return feat
 
