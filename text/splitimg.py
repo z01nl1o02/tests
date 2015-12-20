@@ -20,6 +20,7 @@ def split_rect(indir, outdir, minw = 100, maxw = 180, stepw = 20, steph = 20, h2
             ext.lower()
             if 0 != cmp(ext, '.jpg') and 0 != cmp(ext, '.jpeg'):
                 continue 
+            print sname
             imgs = split_rectK(os.path.join(root, name), minw, maxw, stepw, steph, h2w)
             for k in range(len(imgs)):
                 img = imgs[k]

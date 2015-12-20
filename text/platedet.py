@@ -1,11 +1,9 @@
 import os,sys,pdb,pickle,cv2,shutil
 import numpy as np
 import mlpbase
+import multiprocessing as mp
 
-
-def gen_feat(imgpath):
-    img = cv2.imread(imgpath,1)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+def gen_featK(img):
     img = cv2.resize(img, (90, 30))
     edge = cv2.Laplacian(img[:,:,0], cv2.CV_8U)
     edgemean = edge.mean()
@@ -21,6 +19,12 @@ def gen_feat(imgpath):
             ce = edge[ys,xs].mean() * 1.0 / (edgemean + 0.01)
             feat.extend([cy,cu,cv,ce])
     return feat
+
+ 
+def gen_feat(imgpath):
+    img = cv2.imread(imgpath,1)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+    return gen_featK(img)
 
 def gen_batch_feat(imgdir):
     feats = []
@@ -106,33 +110,108 @@ def predict_images(indir, posdir,negdir, netname):
     print 'finished! pos ratio = ', posnum * 1.0/(negnum  + posnum)
     return
 
+def predict_slidingwindowK(imgpath, netname, outpath):
+    net = mlpbase.MLP_PROXY(netname)
+    net.load()
+    img = cv2.imread(imgpath, 1)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+    objs = []
+    sizelist = []
+    lastw = 90
+    for k in range(5):
+        sizelist.append(np.int64(lastw))
+        lastw = lastw * 1.2
+
+    for objw in sizelist:
+        objh = np.int64(objw / 3) 
+        if objh < 10:
+            continue
+        stepw = objw / 5
+        steph = objh / 5
+        if stepw < 5:
+            stepw = 5
+        if steph < 5:
+            steph = 5
+        for y in range(0, img.shape[0] - objh, steph):
+            for x in range(0, img.shape[1] - objw, stepw):
+                subimg = img[y:y+objh, x:x+objw, :]
+                feat = gen_featK(subimg)
+                label = predictK(np.reshape(np.array(feat),(1,-1)), net)[0]
+                if label == 1:
+                    objs.append([x,y, x+objw, y + objh])
+    if outpath != None:
+        img = cv2.cvtColor(img, cv2.COLOR_YUV2BGR)
+        for rect in objs:
+            x0,y0,x1,y1 = rect
+            cv2.rectangle(img, (x0,y0),(x1,y1), (255,0,0),2)
+        cv2.imwrite(outpath, img)
+    return objs
+
+def predict_slidingwindow(indir, outdir, netname):
+    pool = mp.Pool(3)
+    for root, dirs, names in os.walk(indir):
+        for name in names:
+            sname,ext = os.path.splitext(name)
+            ext.lower()
+            if 0 != cmp(ext, '.jpg') and 0 != cmp(ext,'.jpeg'):
+                continue
+            src = os.path.join(root, name)
+            dst = os.path.join(outdir, name)
+            pool.apply_async(predict_slidingwindowK,(src, netname, dst))
+    pool.close()
+    pool.join()
+    return 
+
+def save_feats(feats, outdir):
+    step = 10000
+    idx = 0
+    for k in range(0,len(feats), step):
+        x0 = k
+        x1 = k + step
+        with open(os.path.join(outdir, str(idx) + '.dat'), 'wb') as f:
+            pickle.dump(feats[x0:x1], f)
+        idx += 1
+    return  
+  
+def load_feats(indir):
+    feats = []
+    for root, dirs, names in os.walk(indir):
+        for name in names:
+            sname,ext = os.path.splitext(name)
+            if 0 != cmp(ext, '.dat'):
+                continue
+            with open(os.path.join(indir, name), 'rb') as f:
+                fs = pickle.load(f)
+            feats.extend(fs)
+    return feats
+
+    
 if __name__=="__main__":
     netpath = 'net.dat'
     if len(sys.argv) == 4 and 0==cmp(sys.argv[1], '-feat'):
         imgdir = sys.argv[2]
-        outpath = sys.argv[3]
+        outdir = sys.argv[3]
         feats = gen_batch_feat(imgdir)
-        with open(outpath,'wb') as f:
-            pickle.dump(feats, f)
-        print len(feats) ,' samples saved in ', outpath
+        save_feats(feats, outdir)
+        print len(feats) ,' samples saved in ', outdir
     if len(sys.argv) == 4 and 0 == cmp(sys.argv[1], '-train'):
-        pospath = sys.argv[2]
-        negpath = sys.argv[3]
-        with open(pospath, 'rb') as f:
-            poss = pickle.load(f)
-        with open(negpath, 'rb') as f:
-            negs = pickle.load(f)
+        posdir = sys.argv[2]
+        negdir = sys.argv[3]
+        poss = load_feats(posdir)
+        negs = load_feats(negdir)
         train(poss, negs, netpath)
     if len(sys.argv) == 3 and 0 == cmp(sys.argv[1], '-prdimg'):
         indir = sys.argv[2]
         predict_images(indir, None, None, netpath)
-
     if len(sys.argv) == 5 and 0 == cmp(sys.argv[1], '-prdimg'):
         indir = sys.argv[2]
         posdir = sys.argv[3]
         negdir = sys.argv[4]
         predict_images(indir, posdir, negdir, netpath)
-
+    if len(sys.argv) == 4 and 0 == cmp(sys.argv[1], '-prdsw'):
+        indir = sys.argv[2]
+        outdir = sys.argv[3]
+        predict_slidingwindow(indir,outdir,netpath)
 
 
 
