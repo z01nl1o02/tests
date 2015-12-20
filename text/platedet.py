@@ -9,6 +9,10 @@ def gen_featK(img):
     edgemean = edge.mean()
     step = 10
     feat = []
+    feat.append(img[:,:,0].mean())
+    feat.append(img[:,:,1].mean())
+    feat.append(img[:,:,2].mean())
+    feat.append(edge[:,:].mean())
     for y in range(0,img.shape[0],step):
         for x in range(0, img.shape[1], step):
             ys = range(y,y+step)
@@ -18,6 +22,10 @@ def gen_featK(img):
             cv = img[ys,xs,2].mean()       
             ce = edge[ys,xs].mean() * 1.0 / (edgemean + 0.01)
             feat.extend([cy,cu,cv,ce])
+    edge2x = (edge.sum(0) / (edgemean + 0.01)).tolist()
+    edge2y = (edge.sum(1) / (edgemean + 0.01)).tolist()
+    feat.extend(edge2x)
+    feat.extend(edge2y)
     return feat
 
  
@@ -72,10 +80,10 @@ def train(poss, negs, modelname):
     print modelname, ' saved!'
     return
 
-def predictK(samples, net):
+def predictK(samples, net, mode = -1):
     samples = net.normalization(samples)
     targets = net.predict(samples)
-    targets = net.target_mat2vec(targets,2,-1) 
+    targets = net.target_mat2vec(targets,2,mode) 
     res = []
     for k in range(len(targets)):
         res.append(targets[k][0])
@@ -136,8 +144,8 @@ def predict_slidingwindowK(imgpath, netname, outpath):
             for x in range(0, img.shape[1] - objw, stepw):
                 subimg = img[y:y+objh, x:x+objw, :]
                 feat = gen_featK(subimg)
-                label = predictK(np.reshape(np.array(feat),(1,-1)), net)[0]
-                if label == 1:
+                label,score = predictK(np.reshape(np.array(feat),(1,-1)), net,-2048)[0]
+                if label == 1 and score > 0.5:
                     objs.append([x,y, x+objw, y + objh])
     if outpath != None:
         img = cv2.cvtColor(img, cv2.COLOR_YUV2BGR)
@@ -149,6 +157,7 @@ def predict_slidingwindowK(imgpath, netname, outpath):
 
 def predict_slidingwindow(indir, outdir, netname):
     pool = mp.Pool(3)
+    results = []
     for root, dirs, names in os.walk(indir):
         for name in names:
             sname,ext = os.path.splitext(name)
@@ -157,9 +166,11 @@ def predict_slidingwindow(indir, outdir, netname):
                 continue
             src = os.path.join(root, name)
             dst = os.path.join(outdir, name)
-            pool.apply_async(predict_slidingwindowK,(src, netname, dst))
+            results.append(pool.apply_async(predict_slidingwindowK,(src, netname, dst)))
     pool.close()
     pool.join()
+    for res in results:
+        print res.get()
     return 
 
 def save_feats(feats, outdir):

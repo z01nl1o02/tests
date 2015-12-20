@@ -175,6 +175,14 @@ class MLP_PROXY(object):
                     if targets[k,j] >= thresh:
                         l.append(j)
                 target_list.append(l)
+        if thresh < -1024.0:
+            for k in range(targets.shape[0]):
+                l = []
+                m1 = targets[k,:].max()
+                for j in range(targets.shape[1]):
+                    if np.abs(targets[k,j] - m1) < 0.01:
+                        l.append((j,m1)) #label and confidence
+                target_list.append(l) 
         else: #top value
             for k in range(targets.shape[0]):
                 l = []
@@ -198,5 +206,7 @@ class MLP_PROXY(object):
         with open(self._modelpath, 'rb') as f:
             self._cost, self._train, self._predict, self._minmax = pickle.load(f)
         return 0
+
+
 
 
