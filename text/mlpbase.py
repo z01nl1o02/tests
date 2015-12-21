@@ -46,6 +46,17 @@ class MLP(object):
          return T.sum((self.output(x) - y) ** 2)
          return T.mean((self.output(x) - y) ** 2)
 
+    def cvt2c(self):
+        line = ""
+        for param in self.params:
+            parval = param.get_value()
+            line += "%lf"%(parval.shape[0]) + ',' + "%lf"%(parval.shape[1]) + '\n'
+            for y in range(parval.shape[0]):
+                for x in range(parval.shape[1]):
+                    line += "%lf"%(parval[y,x])+ ','
+            line += '\n'       
+        return line
+             
 
 class MLP_PROXY(object): 
     def __init__(self, modelpath):
@@ -54,6 +65,7 @@ class MLP_PROXY(object):
         self._cost = None
         self._minmax = None
         self._modelpath = modelpath
+        self._mlp = None
     def gradient_updates_momentum(self,cost, params, learning_rate, momentum):
         assert momentum < 1 and momentum >= 0
         updates = []
@@ -62,6 +74,12 @@ class MLP_PROXY(object):
             updates.append((param, param - learning_rate * param_update))
             updates.append((param_update, momentum * param_update + (1. - momentum)*T.grad(cost, param)))
         return updates
+
+    def write_in_c_format(self,outpath):
+        line = self._mlp.cvt2c()
+        with open(outpath, 'w') as f:
+            f.writelines(line)
+        return
 
     def create(self, layer_sizes, learning_rate = 0.01, momentum = 0.6):
         W_init = []
@@ -77,6 +95,7 @@ class MLP_PROXY(object):
         self._cost = mlp.squared_error(mlp_input, mlp_target)
         self._train = theano.function([mlp_input,mlp_target], self._cost, updates=self.gradient_updates_momentum(self._cost, mlp.params, learning_rate, momentum))
         self._predict = theano.function([mlp_input],  mlp.output(mlp_input))
+        self._mlp = mlp
         return
 
     def train(self,samples, targets, max_iteration=5000, min_cost = 0.01):
@@ -197,14 +216,14 @@ class MLP_PROXY(object):
         if None == self._modelpath:
             return -1
         with open(self._modelpath, 'wb') as f:
-            pickle.dump((self._cost, self._train, self._predict, self._minmax), f)
+            pickle.dump((self._cost, self._train, self._predict, self._minmax,self._mlp), f)
         return 0
 
     def load(self):
         if None == self._modelpath:
             return -1
         with open(self._modelpath, 'rb') as f:
-            self._cost, self._train, self._predict, self._minmax = pickle.load(f)
+            self._cost, self._train, self._predict, self._minmax, self._mlp = pickle.load(f)
         return 0
 
 
