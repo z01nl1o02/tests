@@ -3,16 +3,19 @@ import numpy as np
 import mlpbase
 import multiprocessing as mp
 
-def gen_featK(img):
+def gen_featK(img, mode = 0):
     img = cv2.resize(img, (90, 30))
     edge = cv2.Laplacian(img[:,:,0], cv2.CV_8U)
     edgemean = edge.mean()
     step = 10
     feat = []
-    feat.append(img[:,:,0].mean())
-    feat.append(img[:,:,1].mean())
-    feat.append(img[:,:,2].mean())
-    feat.append(edge[:,:].mean())
+
+    if mode == 1:
+        feat.append(img[:,:,0].mean())
+        feat.append(img[:,:,1].mean())
+        feat.append(img[:,:,2].mean())
+        feat.append(edge[:,:].mean())
+
     for y in range(0,img.shape[0],step):
         for x in range(0, img.shape[1], step):
             ys = range(y,y+step)
@@ -22,10 +25,12 @@ def gen_featK(img):
             cv = img[ys,xs,2].mean()       
             ce = edge[ys,xs].mean() * 1.0 / (edgemean + 0.01)
             feat.extend([cy,cu,cv,ce])
-    edge2x = (edge.sum(0) / (edgemean + 0.01)).tolist()
-    edge2y = (edge.sum(1) / (edgemean + 0.01)).tolist()
-    feat.extend(edge2x)
-    feat.extend(edge2y)
+
+    if mode == 1:
+        edge2x = (edge.sum(0) / (edgemean + 0.01)).tolist()
+        edge2y = (edge.sum(1) / (edgemean + 0.01)).tolist()
+        feat.extend(edge2x)
+        feat.extend(edge2y)
     return feat
 
  
@@ -118,9 +123,16 @@ def predict_images(indir, posdir,negdir, netname):
     print 'finished! pos ratio = ', posnum * 1.0/(negnum  + posnum)
     return
 
-def predict_slidingwindowK(imgpath, netname, outpath):
-    net = mlpbase.MLP_PROXY(netname)
-    net.load()
+def predict_slidingwindowK(imgpath, netname, outpath, netsinfo):
+    nets = []
+
+    if netname is not None:
+        net = mlpbase.MLP_PROXY(netname)
+        net.load()
+        nets.append([net, 0, 100])
+    else:
+        nets = load_net_for_predict(netsinfo)
+
     img = cv2.imread(imgpath, 1)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
     objs = []
@@ -143,9 +155,17 @@ def predict_slidingwindowK(imgpath, netname, outpath):
         for y in range(0, img.shape[0] - objh, steph):
             for x in range(0, img.shape[1] - objw, stepw):
                 subimg = img[y:y+objh, x:x+objw, :]
-                feat = gen_featK(subimg)
-                label,score = predictK(np.reshape(np.array(feat),(1,-1)), net,-2048)[0]
-                if label == 1 and score > 0.5:
+                votescore = 0
+                for netinfo in nets:
+                    net, fid, votew = netinfo
+                    feat = gen_featK(subimg,fid)
+                    label,score = predictK(np.reshape(np.array(feat),(1,-1)), net,-2048)[0]
+                    if label != 1:
+                        break
+                    votescore += votew * score
+                if label != 1:
+                    continue
+                if  votescore > 0.95:
                     objs.append([x,y, x+objw, y + objh])
     if outpath != None:
         img = cv2.cvtColor(img, cv2.COLOR_YUV2BGR)
@@ -155,8 +175,8 @@ def predict_slidingwindowK(imgpath, netname, outpath):
         cv2.imwrite(outpath, img)
     return objs
 
-def predict_slidingwindow(indir, outdir, netname):
-    pool = mp.Pool(3)
+def predict_slidingwindow(indir, outdir, netname, netsinfo):
+    pool = mp.Pool(2)
     results = []
     for root, dirs, names in os.walk(indir):
         for name in names:
@@ -166,7 +186,7 @@ def predict_slidingwindow(indir, outdir, netname):
                 continue
             src = os.path.join(root, name)
             dst = os.path.join(outdir, name)
-            results.append(pool.apply_async(predict_slidingwindowK,(src, netname, dst)))
+            results.append(pool.apply_async(predict_slidingwindowK,(src, None, dst, netsinfo)))
     pool.close()
     pool.join()
     for res in results:
@@ -196,6 +216,18 @@ def load_feats(indir):
             feats.extend(fs)
     return feats
 
+def load_net_for_predict(netinfo):
+    nets = []
+    with open(netinfo, 'r') as f:
+        for line in f:
+            line = line.strip()
+            netname, featid, votew = line.split(',')  
+            net = mlpbase.MLP_PROXY(netname)
+            net.load()
+            featid = np.int64(featid)
+            votew = np.float64(votew)
+            nets.append([net, featid,votew])
+    return nets
     
 if __name__=="__main__":
     netpath = 'net.dat'
@@ -223,6 +255,14 @@ if __name__=="__main__":
         indir = sys.argv[2]
         outdir = sys.argv[3]
         predict_slidingwindow(indir,outdir,netpath)
+    if len(sys.argv) == 5 and 0 == cmp(sys.argv[1], '-prdsw'):
+        indir = sys.argv[2]
+        outdir = sys.argv[3]
+        netsinfo = sys.argv[4]
+        predict_slidingwindow(indir,outdir,None, netsinfo)
+
+
+
 
 
 
