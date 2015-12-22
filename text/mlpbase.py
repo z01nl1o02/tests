@@ -76,7 +76,11 @@ class MLP_PROXY(object):
         return updates
 
     def write_in_c_format(self,outpath):
-        line = self._mlp.cvt2c()
+        line = ""
+        for m0,m1 in zip(self._minmax[0], self._minmax[1]):
+            line += "%lf,%lf,"%(m0,m1)  
+        line += '\n'
+        line += self._mlp.cvt2c()
         with open(outpath, 'w') as f:
             f.writelines(line)
         return
