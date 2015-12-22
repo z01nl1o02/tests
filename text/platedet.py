@@ -176,22 +176,36 @@ def predict_slidingwindowK(imgpath, netname, outpath, netsinfo):
     return objs
 
 def predict_slidingwindow(indir, outdir, netname, netsinfo):
-    pool = mp.Pool(2)
-    results = []
-    for root, dirs, names in os.walk(indir):
-        for name in names:
-            sname,ext = os.path.splitext(name)
-            ext.lower()
-            if 0 != cmp(ext, '.jpg') and 0 != cmp(ext,'.jpeg'):
-                continue
-            src = os.path.join(root, name)
-            dst = os.path.join(outdir, name)
-            results.append(pool.apply_async(predict_slidingwindowK,(src, None, dst, netsinfo)))
-    pool.close()
-    pool.join()
-    for res in results:
-        print res.get()
+    if 1:
+        pool = mp.Pool(2)
+        results = []
+        for root, dirs, names in os.walk(indir):
+            for name in names:
+                sname,ext = os.path.splitext(name)
+                ext.lower()
+                if 0 != cmp(ext, '.jpg') and 0 != cmp(ext,'.jpeg'):
+                    continue
+                src = os.path.join(root, name)
+                dst = os.path.join(outdir, name)
+                results.append(pool.apply_async(predict_slidingwindowK,(src, None, dst, netsinfo)))
+        pool.close()
+        pool.join()
+        for res in results:
+            print res.get()
+    else:
+        for root, dirs, names in os.walk(indir):
+            for name in names:
+                sname,ext = os.path.splitext(name)
+                ext.lower()
+                if 0 != cmp(ext, '.jpg') and 0 != cmp(ext,'.jpeg'):
+                    continue
+                src = os.path.join(root, name)
+                dst = os.path.join(outdir, name)
+                predict_slidingwindowK(src, None, dst, netsinfo)
     return 
+
+
+
 
 def save_feats(feats, outdir):
     step = 10000
@@ -260,7 +274,13 @@ if __name__=="__main__":
         outdir = sys.argv[3]
         netsinfo = sys.argv[4]
         predict_slidingwindow(indir,outdir,None, netsinfo)
-
+    if len(sys.argv) == 4 and 0 == cmp(sys.argv[1], '-cfmt'):
+        modelpath = sys.argv[2]
+        outpath = sys.argv[3]
+        net = mlpbase.MLP_PROXY(modelpath)
+        net.load()
+        net.write_in_c_format(outpath)
+        print outpath, ' saved'
 
 
 
