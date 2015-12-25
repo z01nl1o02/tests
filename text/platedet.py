@@ -3,7 +3,7 @@ import numpy as np
 import mlpbase
 import multiprocessing as mp
 
-def gen_featK(img, mode = 0):
+def gen_featK(img, mode = 3):
     img = cv2.resize(img, (90, 30))
     edge = cv2.Laplacian(img[:,:,0], cv2.CV_8U)
     edgemean = edge.mean()
@@ -26,11 +26,23 @@ def gen_featK(img, mode = 0):
             ce = edge[ys,xs].mean() * 1.0 / (edgemean + 0.01)
             feat.extend([cy,cu,cv,ce])
 
-    if mode == 1:
+    if mode == 1 or mode == 2:
         edge2x = (edge.sum(0) / (edgemean + 0.01)).tolist()
         edge2y = (edge.sum(1) / (edgemean + 0.01)).tolist()
         feat.extend(edge2x)
         feat.extend(edge2y)
+
+    if mode == 3:
+        step = 5
+        edge2x = (edge.sum(0) / (edgemean + 0.01))
+        for k in range(0,len(edge2x),step):
+            feat.append( edge2x[k:k+step].sum() )
+
+        edge2y = (edge.sum(1) / (edgemean + 0.01))
+        for k in range(0,len(edge2y),step):
+            feat.append( edge2y[k:k+step].sum() )
+
+
     return feat
 
  
