@@ -50,7 +50,7 @@ class MLP(object):
         line = ""
         for param in self.params:
             parval = param.get_value()
-            line += "%d"%(parval.shape[0]) + ',' + "%d"%(parval.shape[1]) + '\n'
+            line += "%d"%(parval.shape[0]) + ',' + "%d"%(parval.shape[1]) + ',\n'
             for y in range(parval.shape[0]):
                 for x in range(parval.shape[1]):
                     line += "%lf"%(parval[y,x])+ ','

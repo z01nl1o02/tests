@@ -3,7 +3,7 @@ import numpy as np
 import mlpbase
 import multiprocessing as mp
 
-def gen_featK(img, mode = 3):
+def gen_featK(img, mode = 1):
     img = cv2.resize(img, (90, 30))
     edge = cv2.Laplacian(img[:,:,0], cv2.CV_8U)
     edgemean = edge.mean()
@@ -16,15 +16,31 @@ def gen_featK(img, mode = 3):
         feat.append(img[:,:,2].mean())
         feat.append(edge[:,:].mean())
 
-    for y in range(0,img.shape[0],step):
-        for x in range(0, img.shape[1], step):
-            ys = range(y,y+step)
-            xs = range(x,x+step)
-            cy = img[ys,xs,0].mean()
-            cu = img[ys,xs,1].mean()
-            cv = img[ys,xs,2].mean()       
-            ce = edge[ys,xs].mean() * 1.0 / (edgemean + 0.01)
-            feat.extend([cy,cu,cv,ce])
+    if mode <= 3:
+        for y in range(0,img.shape[0],step):
+            for x in range(0, img.shape[1], step):
+                ys = range(y,y+step)
+                xs = range(x,x+step)
+                cy = img[ys,xs,0].mean()
+                cu = img[ys,xs,1].mean()
+                cv = img[ys,xs,2].mean()       
+                ce = edge[ys,xs].mean() * 1.0 / (edgemean + 0.01)
+                feat.extend([cy,cu,cv,ce])
+
+    if mode == 4:
+        for y in range(0,img.shape[0],step):
+            for x in range(0, img.shape[1], step):
+                ys = range(y,y+step)
+                xs = range(x,x+step)
+                cy = img[ys,xs,0].mean()
+                cu = img[ys,xs,1].mean()
+                cv = img[ys,xs,2].mean()  
+                cuvd = np.abs(cu - cv)     
+                cuvs = (cu + cv) / 2
+                ce = edge[ys,xs].mean() * 1.0 / (edgemean + 0.01)
+                feat.extend([cy,cuvd,cuvs,ce])
+
+
 
     if mode == 1 or mode == 2:
         edge2x = (edge.sum(0) / (edgemean + 0.01)).tolist()
@@ -51,6 +67,13 @@ def gen_feat(imgpath):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
     return gen_featK(img)
 
+def gen_feat2(imgpath):
+    img = cv2.imread(imgpath,1)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+    feata = gen_featK(img)
+    featb = gen_featK(255 - img)
+    return [feata, featb]
+
 def gen_batch_feat(imgdir):
     feats = []
     for root, dirs, names in os.walk(imgdir):
@@ -58,9 +81,10 @@ def gen_batch_feat(imgdir):
             sname,ext = os.path.splitext(name)
             if 0 != cmp(ext, '.jpg') and 0 != cmp(ext, '.jpeg'):
                 continue
-            feat = gen_feat(os.path.join(root, name))
-            feats.append(feat)
-            if 0 == len(feats) % 1000:
+            feata, featb = gen_feat2(os.path.join(root, name))
+            feats.append(feata)
+            feats.append(featb)
+            if 0 == len(feats) % 5000:
                 print len(feats), ':', name
     print len(feats), ' done! dim:', len(feats[0])
     return feats
@@ -177,7 +201,7 @@ def predict_slidingwindowK(imgpath, netname, outpath, netsinfo):
                     votescore += votew * score
                 if label != 1:
                     continue
-                if  votescore > 0.95:
+                if  votescore > 0.5:
                     objs.append([x,y, x+objw, y + objh])
     if outpath != None:
         img = cv2.cvtColor(img, cv2.COLOR_YUV2BGR)
@@ -189,7 +213,7 @@ def predict_slidingwindowK(imgpath, netname, outpath, netsinfo):
 
 def predict_slidingwindow(indir, outdir, netname, netsinfo):
     if 1:
-        pool = mp.Pool(2)
+        pool = mp.Pool(3)
         results = []
         for root, dirs, names in os.walk(indir):
             for name in names:
@@ -202,8 +226,6 @@ def predict_slidingwindow(indir, outdir, netname, netsinfo):
                 results.append(pool.apply_async(predict_slidingwindowK,(src, None, dst, netsinfo)))
         pool.close()
         pool.join()
-        for res in results:
-            print res.get()
     else:
         for root, dirs, names in os.walk(indir):
             for name in names:
