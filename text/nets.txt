@@ -1,2 +1,1 @@
-net8w.dat,0,0.5
-net8w_gray.dat,1,0.5
+samples_6\net_6.dat,1,1.0
