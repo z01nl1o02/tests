@@ -37,13 +37,21 @@ def create_gabor_2d(bandwidth, x2y, psi, wavelen, theta):
 if __name__=="__main__":
     plt.figure()
     k = 1
-    for wl in range(5,16,5):
+    line = ""
+    for wl in range(5,21,5):
         for a in range(0,180,30):
-            plt.subplot(3,6,k)
-            k += 1
+            plt.subplot(4,6,k)
             gb = create_gabor_2d(1,1,0,wl,math.pi*a / 180.0)
             plt.imshow(gb,cmap = plt.cm.gray)
+            line += "double gabor_filter%d[%d*%d] = {" %(k,gb.shape[0],gb.shape[1])
+            for y in range(gb.shape[0]):
+                for x in range(gb.shape[1]):
+                    line += "%lf,"%gb[y,x]
+            line += "};\r\n"
+            k += 1
     plt.show()   
+    with open('gabor_filter.txt', 'w') as f:
+        f.writelines(line)
 
 
 
