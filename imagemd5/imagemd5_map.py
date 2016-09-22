@@ -16,7 +16,7 @@ def run(md2jpg_pkl_from,md2jpg_pkl_to,outfile):
     theMap = {}
     for md in md2jpgFrom.keys():
         if md not in md2jpgTo.keys():
-            print 'miss %s'%(md2jpgFrom[md])
+            print 'miss %s'%(md2jpgFrom[md][0])
             continue
         jpgFrom = md2jpgFrom[md][0].split('\\')[-1]
         jpgTo = md2jpgTo[md][0].split('\\')[-1]
