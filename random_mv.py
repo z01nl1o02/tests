@@ -2,6 +2,7 @@ import os,sys,pdb,cPickle
 import numpy as np
 import random
 import argparse
+import time
 def load_images(indir):
     pathList = []
     for rdir, pdirs, names in os.walk(indir):
@@ -13,12 +14,13 @@ def load_images(indir):
             pathList.append( os.path.join(rdir,name) )
     return pathList
 
-def run(indir, outdir, outbatch):
+def run(indir, outbatch):
+    timestamp = time.time()
     pathList = load_images(indir)
     random.shuffle(pathList)
-    lineList = ['mkdir "%s"'%outdir]
+    lineList = []
     for index,path in enumerate(pathList):
-        line = 'rename "%s" "%s"\\%d.jpg'%(path, outdir, index)
+        line = 'rename "%s" "%d_%d.jpg'%(path, timestamp, index)
         lineList.append(line)
     lines = '\r\n'.join(lineList)
     with open(outbatch,'wb') as f:
@@ -30,5 +32,4 @@ if __name__=="__main__":
     ap.add_argument('indir',help='image root folder')
     ap.add_argument('outbatch',help='outupt batch file')
     args = ap.parse_args()
-    outdir = os.path.splitext(args.outbatch)[0]
-    run(args.indir, outdir, args.outbatch) 
+    run(args.indir, args.outbatch) 
