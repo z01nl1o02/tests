@@ -22,16 +22,14 @@ def run_one_class(args):
         while 1:
             if len(accessSet) >= total:
                 break
-            for k in range(total):
-                x = random.randint( 0, img.shape[1] - 1 - cropW)
-                y = random.randint( 0, img.shape[0] - 1 - cropH)
-                mark = '%d_%d'%(x,y)
-                if mark in accessSet:
-                    continue
-                accessSet.add(mark)
-                cropImg = cv2.resize( img[y:y+cropH,x:x+cropW,:], (img.shape[1],img.shape[0]))
-                cv2.imwrite( os.path.join(outdir, sname + ",crop%d_%d_%d_%d.jpg"%(x,y,cropW,cropH)),
-                        cropImg)
+            x = random.randint( 0, img.shape[1] - 1 - cropW)
+            y = random.randint( 0, img.shape[0] - 1 - cropH)
+            mark = '%d_%d'%(x,y)
+            if mark in accessSet:
+                continue
+            accessSet.add(mark)
+            cropImg = cv2.resize( img[y:y+cropH,x:x+cropW,:], (img.shape[1],img.shape[0]))
+            cv2.imwrite( os.path.join(outdir, sname + ",crop%d_%d_%d_%d.jpg"%(x,y,cropW,cropH)),cropImg)
     return
 
 def run(indir,outdir,cropW,cropH,numPerImg,cpu):
