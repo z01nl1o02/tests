@@ -26,7 +26,7 @@ class SALT_PEPPER:
         return gray
 
 class GAUSSIAN:
-    def __init__(self, mean = 0.0, sigma = 0.05):
+    def __init__(self, mean = 0.0, sigma = 0.1):
         sigma = sigma * 255
         mean = mean * 255
         sigma2 = sigma * sigma * 2
@@ -116,7 +116,7 @@ if __name__=="__main__":
     ap.add_argument('type',help='noise type (saltpepper,gaussian)',default='saltpepper')
     ap.add_argument('-cpu',help='thread number',default=2, type=np.int64)
     args = ap.parse_args()
-    run_S(args.indir, args.outdir, args.type, args.cpu)
+    run(args.indir, args.outdir, args.type, args.cpu)
 
 
 
