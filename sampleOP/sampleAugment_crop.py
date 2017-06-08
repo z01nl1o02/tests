@@ -5,7 +5,7 @@ import numpy as np
 import multiprocessing as mp
 import random
 def run_one_class(args):
-    indir,outdir,total,cropWR,cropHR = args
+    indir,outdir,total,cropWR,cropHR,flagResize = args
     try:
         os.makedirs(outdir)
     except Exception,e:
@@ -28,18 +28,21 @@ def run_one_class(args):
             if mark in accessSet:
                 continue
             accessSet.add(mark)
-            cropImg = cv2.resize( img[y:y+cropH,x:x+cropW,:], (img.shape[1],img.shape[0]))
+            if flagResize != 0:
+                cropImg = cv2.resize( img[y:y+cropH,x:x+cropW,:], (img.shape[1],img.shape[0]))
+            else:
+                cropImg = img[y:y+cropH,x:x+cropW,:]
             cv2.imwrite( os.path.join(outdir, sname + ",crop%d_%d_%d_%d.jpg"%(x,y,cropW,cropH)),cropImg)
     return
 
-def run(indir,outdir,cropW,cropH,numPerImg,cpu):
+def run(indir,outdir,cropW,cropH,numPerImg,cpu,flagResize):
     params = []
     objs = os.listdir(indir)
     for obj in objs:
         fname = os.path.join(indir, obj)
         if not os.path.isdir(fname):
             continue
-        params.append( (fname, os.path.join(outdir,obj), numPerImg,cropW,cropH) )
+        params.append( (fname, os.path.join(outdir,obj), numPerImg,cropW,cropH, flagResize) )
     pool = mp.Pool(cpu)
     pool.map(run_one_class, params)
     pool.close()
@@ -53,6 +56,7 @@ if __name__=="__main__":
     ap.add_argument('-numPerImg',help='crop number per-sample',default=10, type=np.int64)
     ap.add_argument('-cropW',help='cropped width wrt origin image [0,1]',default=0.9, type=np.float64)
     ap.add_argument('-cropH',help='cropped height wrt origin image [0,1]',default=0.9, type=np.float64)
+    ap.add_argument('-resize',help='resize after crop to keep size unchanged', default=1, type=np.int64)
     ap.add_argument('-cpu',help='thread number',default=2, type=np.int64)
     args = ap.parse_args()
-    run(args.indir, args.outdir, args.cropW, args.cropH, args.numPerImg, args.cpu)
+    run(args.indir, args.outdir, args.cropW, args.cropH, args.numPerImg, args.cpu, args.resize)
