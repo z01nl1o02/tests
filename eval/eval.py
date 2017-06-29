@@ -24,7 +24,7 @@ class EVAL_CLASS:
         self._classnames = []
         for Y in self._data.keys():
             self._names.append(Y)
-        self._names = sorted( list( set(self._name) ) )
+        self._names = sorted( list( set(self._names) ) )
         for Y in self._names:
             for C in self._names:
                 if C in self._data[Y].keys():
