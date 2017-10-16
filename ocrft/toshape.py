@@ -4,15 +4,13 @@ import cv2
 import math
 import imagethin
 import copy
-
 class SHAPE_FEAT:
-    def __init__(self,debugFlag = False):
+    def __init__(self,debugFlag = False,blockW = 12, blockH = 12):
         self._debugFlag = debugFlag
-        self._blockW = 12
-        self._blockH = 12
+        self._blockW = blockW
+        self._blockH = blockH
         self._eohSize = 6
-    def raw_contour(self,filepath):
-        img = cv2.imread(filepath,0)
+    def raw_contour(self,img):
         th,bw = cv2.threshold(img,0,255,cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
         #bw = cv2.Canny(bw,10,100)
         bw = 255 - bw
