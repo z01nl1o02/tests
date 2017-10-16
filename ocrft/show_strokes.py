@@ -8,7 +8,7 @@ import cv2
 
 
 
-def load_one(infile,clf):
+def load_one(infile):
     results = []
     with open(infile,'rb') as f:
         for line in f:
@@ -17,21 +17,15 @@ def load_one(infile,clf):
             for data in datas:
                 cx,cy,ori = [np.float64(x) for x in data.split(',')]             
                 result.append( (cx,cy,ori))
-            Y = clf.predict( np.asarray(result) )
-            result = []
-            for y in Y:
-                result.append( clf.cluster_centers_[y] )
             results.append(result)
     return results
     
 def run(indir,outdir,w = 32,h = 64):
-    with open('strokes.pkl','rb') as f:
-        clf = cPickle.load(f)
     folderset = set([])
     sft = SHAPE_FEAT(False,8,8)
     idx = 0
     for txt in os.listdir(indir):
-        shapes =  load_one( os.path.join(indir,txt) ,clf) 
+        shapes =  load_one( os.path.join(indir,txt)) 
         cid = txt.split('.')[0]
         odir = os.path.join(outdir,cid)
         if odir not in folderset:
@@ -55,4 +49,4 @@ def run(indir,outdir,w = 32,h = 64):
                 break
                 
 if __name__=="__main__":
-    run('feat_norm','show')
+    run('proto','show')
