@@ -23,5 +23,5 @@ def run(indir):
         cPickle.dump(clf, f)
 
 if __name__=="__main__":
-    run('feat_norm')
+    run('feat_norm\\train')
 

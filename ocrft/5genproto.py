@@ -58,4 +58,4 @@ def run(indir,outdir):
         
                 
 if __name__=="__main__":
-    run('feat_norm','proto')
+    run('feat_norm\\train','proto')

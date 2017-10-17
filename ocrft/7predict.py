@@ -67,13 +67,17 @@ def calc_shape_distance(shape0,shape1,K=1):
     
 def predict(protolabels,protoshapes,labels,shapes):
     hit = 0
+    score = []
     for label, shape in zip(labels,shapes):
         dist = []
         for pla,psh in zip(protolabels,protoshapes): 
             dist.append( calc_shape_distance(shape,psh) )
         k = np.argmin(dist)
+        score.append( dist[k] )
         if label == protolabels[k]:
             hit += 1
+    score = np.asarray(score)
+    print score.min(),',',score.max(),',',score.mean()
     return hit * 1.0 / len(labels)
 
 
@@ -88,11 +92,15 @@ def run(indir,protodir):
         clf = cPickle.load(f)
     protolabels, protoshapes = load_proto(protodir)
 
+    lines = []
     for txt in os.listdir(indir):
         labels,shapes,paths = load_one_test( os.path.join(indir,txt) ) 
         recalling = predict(protolabels,protoshapes,labels,shapes)
         print txt,',',recalling 
+        lines.append('%s,%.5f'%(txt,recalling))
+    with open('predict.result.txt','wb') as f:
+        f.writelines('\r\n'.join(lines))
         
                 
 if __name__=="__main__":
-    run('feat_norm','proto')
+    run('feat_norm\\test','proto')
