@@ -16,10 +16,6 @@ def save_feat(shapes,cid,outfile):
         f.writelines('\r\n'.join(lines))
 
 def run_one_class(cid,indir,outdir):
-    try:
-        os.makedirs(outdir)
-    except Exception,e:
-        print e
     shapes = []
     fg = SHAPE_FEAT(False,8,8)
     for name in os.listdir(indir):
@@ -32,10 +28,15 @@ def run_one_class(cid,indir,outdir):
     save_feat(shapes,cid,os.path.join(outdir,cid+'.txt'))
 
 def run_all(indir,outdir):
+    try:
+        os.makedirs(outdir)
+    except Exception,e:
+        print e
     for cid in os.listdir(indir):
         idir = os.path.join(indir,cid)
         run_one_class(cid,idir,outdir)
 
 if __name__=="__main__":
-    run_all('thin','feats')
+    run_all('thin\\train','feats\\train')
+    run_all('thin\\test','feats\\test')
 

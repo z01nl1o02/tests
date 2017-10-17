@@ -40,7 +40,8 @@ def norm_all(indir,outdir):
         norm_one(src,dst)
 
 if __name__=="__main__":
-    norm_all('feats','feat_norm')
+    norm_all('feats\\train','feat_norm\\train')
+    norm_all('feats\\test','feat_norm\\test')
 
 
 
