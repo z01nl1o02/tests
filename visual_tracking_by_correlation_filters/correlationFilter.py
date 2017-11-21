@@ -57,7 +57,7 @@ def corrFilter(testimage, targetPt, targetR):
                 for scale in range(8,12,1):
                     #affine
                     affMat = cv2.getRotationMatrix2D((cx + dx,cy+dy),theta,scale/10.0)
-                    affRes = cv2.warpAffine(img,affMat,img.shape)
+                    affRes = cv2.warpAffine(img,affMat,(img.shape[1],img.shape[0]))
                     f = affRes * 1.0 
                     #input
                     f = preprocess(f)
@@ -105,8 +105,8 @@ def run():
     #pt = (126,164)
     pt = (96,127)
     R = 32
-    H = corrFilter("1.jpg", pt,R)
-    test("1.jpg",H)
+    H = corrFilter("2.jpg", pt,R)
+    test("2.jpg",H)
 
 if __name__=="__main__":
     run()
