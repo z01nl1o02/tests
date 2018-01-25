@@ -4,17 +4,10 @@ import os,sys,pdb
 
 def run(traindir,testdir,w,h):
     batchsize = 300
-    io = sampleio.SAMPLEIO()
-    io.load(traindir,batchsize,w,h)
-    train_iter = io.get_data_iter()
+    train_iter = sampleio.SAMPLEIO().load(traindir,batchsize,w,h).get_data_iter()
+    valid_iter = sampleio.SAMPLEIO().load(testdir,batchsize,w,h).get_data_iter()
     model = colornet.COLORNET()
-    model.fit(train_iter, None,batchsize)
-    acc = model.predict(train_iter)
-    print 'train acc = ',acc
-    io.load(testdir,batchsize,w,h)
-    test_iter = io.get_data_iter();
-    acc = model.predict(test_iter)
-    print 'test acc = ',acc
+    model.fit(train_iter, valid_iter,batchsize)
     
 
 if __name__=="__main__":

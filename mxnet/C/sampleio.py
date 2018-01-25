@@ -49,7 +49,7 @@ class SAMPLEIO(object):
             row += data.shape[0]
         print X.shape, Y.shape
         self.data_iter = mx.io.NDArrayIter(X,Y,batchsize,shuffle=True)       
-        return True
+        return self
     def get_data_iter(self):
         return self.data_iter;
 

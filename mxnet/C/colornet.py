@@ -6,11 +6,11 @@ import os,sys,pdb,pickle
 class COLORNET(object):
     def __init__(self):
         data = mx.sym.var('data')
-        conv1 = mx.sym.Convolution(data=data,kernel=(5,5),num_filter=20)
+        conv1 = mx.sym.Convolution(data=data,kernel=(5,5),num_filter=2)
         tanh1 = mx.sym.Activation(data=conv1,act_type='tanh')
         pool1 = mx.sym.Pooling(data=tanh1, pool_type='max', kernel=(2,2), stride = (2,2))
 
-        conv2 = mx.sym.Convolution(data=pool1, kernel=(5,5), num_filter=50)
+        conv2 = mx.sym.Convolution(data=pool1, kernel=(5,5), num_filter=5)
         tanh2 = mx.sym.Activation(data=conv2, act_type='tanh')
         pool2 = mx.sym.Pooling(data=tanh2, pool_type='max', kernel = (2,2), stride=(2,2))
 
@@ -22,12 +22,18 @@ class COLORNET(object):
         symbol = mx.sym.SoftmaxOutput(data=fc2, name='softmax')
         self.net = mx.mod.Module(symbol=symbol, context=mx.cpu())
     def fit(self,train_iter, val_iter,batchsize): 
+        try:
+            os.makedirs('model')
+        except Exception,e:
+            pass
         head = '%(asctime)-15s %(message)s'
         logging.basicConfig(level=logging.DEBUG, format=head) #enable log out
         self.net.fit(train_iter, eval_data=val_iter, optimizer='sgd',
-        optimizer_params={'learning_rate':0.1},
+        optimizer_params={'learning_rate':0.1,'wd':0.0}, #weight decay
             eval_metric='acc',
-            batch_end_callback=mx.callback.Speedometer(batchsize,100),num_epoch=200)
+            batch_end_callback=mx.callback.Speedometer(batchsize,100),
+            epoch_end_callback=mx.callback.do_checkpoint("model\\colornaming"),
+            num_epoch=200)
     def predict(self,test_iter):
         prob = self.net.predict(test_iter)
         acc = mx.metric.Accuracy()
