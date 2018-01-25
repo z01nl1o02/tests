@@ -35,7 +35,7 @@ class SAMPLEIO(object):
             if not os.path.isdir(fname):
                 print 'skip ',folder
                 continue
-            print folder
+            #print folder
             datas = self.load_one_class(fname,w,h)
             dataall.append(datas)
             labelall.append( np.int32(folder) )
@@ -47,7 +47,7 @@ class SAMPLEIO(object):
             X[row:row + data.shape[0],:,:,:] = data           
             Y[row:row + data.shape[0]] = label
             row += data.shape[0]
-        print X.shape, Y.shape
+        #print X.shape, Y.shape
         self.data_iter = mx.io.NDArrayIter(X,Y,batchsize,shuffle=True)       
         return self
     def get_data_iter(self):
