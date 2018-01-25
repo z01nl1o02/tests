@@ -10,7 +10,7 @@ class SAMPLE(object):
     def load(self,filepath):
         X = []
         Y = []
-        with open('train.txt','rb') as f:
+        with open(filepath,'rb') as f:
             for line in f:
                 line = line.strip().split(',')
                 x = [ np.float64(k) for k in line[1:]]
@@ -66,6 +66,7 @@ class CLASSIFICATION(object):
             recalls.append(  recall_score(validY,C,average='micro') )
             precisions.append( accuracy_score(validY,C) )
             C = clf.predict(testX)
+            
             testrecalls.append(  recall_score(testY,C,average='micro') )
             testprecisions.append( accuracy_score(testY,C) )
         for r, p,tr,tp in zip(recalls, precisions, testrecalls, testprecisions):
