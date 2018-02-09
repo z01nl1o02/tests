@@ -20,6 +20,8 @@ class SAMPLEIO(object):
             img = np.float32(img) / 255.0 #normalization
             raw = [ img[:,:,0], img[:,:,1], img[:,:,2] ]
             raws.append(raw)
+            if len(raws) > 3000:
+                break
         datas = np.zeros( (len(raws), 3, w, h), dtype=np.float32)
         for row,raw in enumerate(raws):
             datas[row,0,:,:] = raw[0]

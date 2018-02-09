@@ -3,7 +3,7 @@ import sampleio
 import os,sys,pdb
 
 def run(traindir,testdir,w,h):
-    batchsize = 300
+    batchsize = 400
     train_iter = sampleio.SAMPLEIO().load(traindir,batchsize,w,h).get_data_iter()
     valid_iter = sampleio.SAMPLEIO().load(testdir,batchsize,w,h).get_data_iter()
     model = colornet.COLORNET()
