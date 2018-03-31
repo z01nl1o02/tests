@@ -9,7 +9,7 @@ cx = 64
 cy = 64
 Ah = 40
 Bh = 20
-R = 170 * math.pi / 180.0
+R = 30 * math.pi / 180.0
 
 sin_r = math.sin(R)
 cos_r = math.cos(R)
