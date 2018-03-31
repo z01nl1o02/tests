@@ -35,6 +35,9 @@ def calc_params(img):
 def norm(img, params):
     cx,cy,a,b,R = params
     print 'rotated: ', R * 180 / math.pi
+    if R < 0: #make rotated alone one-direction
+        R = math.pi + R
+
     stdH,stdW = (128*2,128*2)
     H,W = img.shape
     new = np.zeros((stdH,stdW))
