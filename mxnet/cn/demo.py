@@ -8,7 +8,6 @@ import pdb,os,sys
 trainBatchSize = 50
 testBatchSize = 50
 dataShape = (3,200,200)
-imgroot="c:/dataset/colorname3/256x256/"
 
 net = nn.Sequential()
 with net.name_scope():
@@ -54,10 +53,10 @@ trainIter = mx.image.ImageIter(batch_size=trainBatchSize, data_shape=dataShape, 
 testIter = mx.image.ImageIter(batch_size=testBatchSize, data_shape=dataShape, path_imgrec='test.rec',\
             path_imgidx = 'test.idx',
             aug_list=aug)
-lr_sch = mx.lr_scheduler.FactorScheduler(step=100,factor=0.8)
+lr_sch = mx.lr_scheduler.FactorScheduler(step=100,factor=0.9)
 loss = gluon.loss.SoftmaxCrossEntropyLoss()
 trainer = gluon.Trainer(net.collect_params(),"sgd",\
-{'learning_rate':0.01,'lr_scheduler':lr_sch})
+{'learning_rate':0.001,'lr_scheduler':lr_sch})
 utils.train(trainIter, testIter, net, loss, trainer, utils.try_gpu(), 1000,print_batches=100)
 
 

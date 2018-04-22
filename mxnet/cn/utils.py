@@ -114,7 +114,7 @@ def evaluate_accuracy(data_iterator, net, ctx=[mx.cpu()]):
         ctx = [ctx]
     acc = nd.array([0])
     n = 0.
-    if isinstance(data_iterator, mx.io.MXDataIter):
+    if isinstance(data_iterator, mx.io.MXDataIter) or isinstance(data_iterator,mx.image.ImageIter):
         data_iterator.reset()
     for batch in data_iterator:
         data, label, batch_size = _get_batch(batch, ctx)
@@ -133,7 +133,7 @@ def train(train_data, test_data, net, loss, trainer, ctx, num_epochs, print_batc
         ctx = [ctx]
     for epoch in range(num_epochs):
         train_loss, train_acc, n, m = 0.0, 0.0, 0.0, 0.0
-        if isinstance(train_data, mx.io.MXDataIter):
+        if isinstance(train_data, mx.io.MXDataIter) or isinstance(train_data,mx.image.ImageIter):
             train_data.reset()
         start = time()
         #i = 0
@@ -164,6 +164,7 @@ def train(train_data, test_data, net, loss, trainer, ctx, num_epochs, print_batc
         print("Epoch %d. Loss: %.3f, Train acc %.2f, Test acc %.2f, Time %.1f sec" % (
             epoch, train_loss/n, train_acc/m, test_acc, time() - start
         ))
+        print("done")
 
 class Residual(nn.HybridBlock):
     def __init__(self, channels, same_shape=True, **kwargs):
