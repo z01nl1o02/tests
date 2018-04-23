@@ -6,13 +6,13 @@ import utils
 import pdb,os,sys
 from importlib import import_module
 
-trainBatchSize = 50
-testBatchSize = 50
+trainBatchSize = 10
+testBatchSize = 10
 dataShape = (3,200,200)
 classNum = 11
 
 def get_net():      
-    mod = import_module('symbol.caffenet')
+    mod = import_module('symbol.resnet')
     net = mod.get_symbol(classNum,utils.try_gpu())
     print(net)
     return net 
