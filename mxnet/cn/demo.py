@@ -4,60 +4,44 @@ from mxnet import gluon
 import sys
 import utils
 import pdb,os,sys
+from importlib import import_module
 
 trainBatchSize = 50
 testBatchSize = 50
 dataShape = (3,200,200)
+classNum = 11
 
-net = nn.Sequential()
-with net.name_scope():
-    #L1
-    net.add( nn.Conv2D(channels=96, kernel_size=11, strides = 4 ) )
-    net.add( nn.BatchNorm(axis=1) )
-    net.add( nn.Activation(activation = "relu" ) )
-    net.add( nn.MaxPool2D(pool_size=3, strides=2) )
-    #L2
-    net.add( nn.Conv2D(channels=256, kernel_size=5, strides = 1, padding = 2) )
-    net.add( nn.BatchNorm(axis=1) )
-    net.add( nn.Activation(activation="relu"))
-    net.add( nn.MaxPool2D(pool_size=3, strides=2))
-    #L3
-    net.add( nn.Conv2D(channels=384, kernel_size=3, strides = 1, padding = 1))
-    net.add( nn.BatchNorm(axis=1) )
-    net.add( nn.Activation(activation="relu"))
-    #L4
-    net.add( nn.Conv2D(channels=384, kernel_size=3, strides=1, padding=1))
-    net.add( nn.BatchNorm(axis=1) )
-    net.add( nn.Activation(activation="relu"))
-    #L5
-    net.add( nn.Conv2D(channels=256, kernel_size=3, strides=1, padding=1) )
-    net.add( nn.BatchNorm(axis=1) )
-    net.add( nn.Activation(activation="relu"))
-    net.add( nn.MaxPool2D(pool_size=3, strides=2) )
-    #L6
-    net.add( nn.Dense(4096, activation="relu"))
-    net.add( nn.Dropout(0.5))
-    #L7
-    net.add( nn.Dense(4096, activation="relu"))
-    net.add( nn.Dropout(0.5))
-    #L8
-    net.add( nn.Dense(11) )
+def get_net():      
+    mod = import_module('symbol.caffenet')
+    net = mod.get_symbol(classNum,utils.try_gpu())
+    print(net)
+    return net 
 
-#mx.viz.plot_network(net).view()
-net.initialize( ctx=utils.try_gpu() )
-aug = mx.image.CreateAugmenter(data_shape = dataShape, resize = dataShape[1], mean=True, std=True)
+def get_train_test():
+    aug = mx.image.CreateAugmenter(data_shape = dataShape, resize = dataShape[1], mean=True, std=True)
 
-trainIter = mx.image.ImageIter(batch_size=trainBatchSize, data_shape=dataShape, path_imgrec='train.rec',\
-            path_imgidx = 'train.idx',
-            aug_list=aug)
-testIter = mx.image.ImageIter(batch_size=testBatchSize, data_shape=dataShape, path_imgrec='test.rec',\
-            path_imgidx = 'test.idx',
-            aug_list=aug)
-lr_sch = mx.lr_scheduler.FactorScheduler(step=100,factor=0.9)
-loss = gluon.loss.SoftmaxCrossEntropyLoss()
-trainer = gluon.Trainer(net.collect_params(),"sgd",\
-{'learning_rate':0.001,'lr_scheduler':lr_sch})
-utils.train(trainIter, testIter, net, loss, trainer, utils.try_gpu(), 1000,print_batches=100)
+    trainIter = mx.image.ImageIter(batch_size=trainBatchSize, data_shape=dataShape, path_imgrec='train.rec',\
+                path_imgidx = 'train.idx',
+                aug_list=aug)
+    testIter = mx.image.ImageIter(batch_size=testBatchSize, data_shape=dataShape, path_imgrec='test.rec',\
+                path_imgidx = 'test.idx',
+                aug_list=aug)
+    return (trainIter, testIter)
+    
+def get_trainer(net):      
+    lr_sch = mx.lr_scheduler.FactorScheduler(step=100,factor=0.9)
+    loss = gluon.loss.SoftmaxCrossEntropyLoss()
+    trainer = gluon.Trainer(net.collect_params(),"sgd",{'learning_rate':0.001,'lr_scheduler':lr_sch})
+    return (trainer,loss)
+    
+def main():
+    net = get_net()
+    trainIter, testIter = get_train_test()
+    trainer,loss = get_trainer(net)
+    utils.train(trainIter, testIter, net, loss, trainer, utils.try_gpu(), 1000,print_batches=100)
+    
+if __name__=="__main__":
+    main()
 
 
 
