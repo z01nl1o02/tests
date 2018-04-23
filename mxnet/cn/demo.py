@@ -12,7 +12,7 @@ dataShape = (3,200,200)
 classNum = 11
 
 def get_net():      
-    mod = import_module('symbol.resnet')
+    mod = import_module('symbol.ninnet')
     net = mod.get_symbol(classNum,utils.try_gpu())
     print(net)
     return net 
