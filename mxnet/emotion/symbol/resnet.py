@@ -62,7 +62,11 @@ class ResNet(nn.Block):
             b6 = nn.Sequential()
             b6.add(
                 nn.AvgPool2D(pool_size = 3),
-                nn.Dense(num_class)
+                nn.Dense(4096,activation="relu"),
+                nn.Dropout(0.5),
+				nn.Dense(4096,activation="relu"),
+                nn.Dropout(0.5),
+				nn.Dense(num_class)
                 )
             self.net = nn.Sequential()
             self.net.add(b1,b2,b3,b4,b5,b6)

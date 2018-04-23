@@ -10,7 +10,7 @@ trainBatchSize = 50
 testBatchSize = 50
 dataShape = (3,200,200)
 classNum = 7
-
+wd = 0.0
 def get_net():      
     mod = import_module('symbol.resnet')
     net = mod.get_symbol(classNum,utils.try_gpu())
@@ -29,9 +29,9 @@ def get_train_test():
     return (trainIter, testIter)
     
 def get_trainer(net):      
-    lr_sch = mx.lr_scheduler.FactorScheduler(step=1000,factor=0.9)
+    lr_sch = mx.lr_scheduler.FactorScheduler(step=10,factor=0.5)
     loss = gluon.loss.SoftmaxCrossEntropyLoss()
-    trainer = gluon.Trainer(net.collect_params(),"sgd",{'learning_rate':0.01,'lr_scheduler':lr_sch})
+    trainer = gluon.Trainer(net.collect_params(),"sgd",{'learning_rate':0.01,'lr_scheduler':lr_sch,'wd':wd})
     return (trainer,loss)
     
 def main():
