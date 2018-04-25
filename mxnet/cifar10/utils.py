@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import random
 import pdb,os,sys
+import logging
 
 class DataLoader(object):
     """similiar to gluon.data.DataLoader, but might be faster.
@@ -138,7 +139,7 @@ def train(train_data, test_data, net, loss, trainer, ctx, num_epochs, print_batc
         except Exception,e:
             print e.message
     """Train a network"""
-    print("Start training on ", ctx)
+    logging.info("Start training on %s"%ctx)
     if isinstance(ctx, mx.Context):
         ctx = [ctx]
     for epoch in range(num_epochs):
@@ -146,12 +147,8 @@ def train(train_data, test_data, net, loss, trainer, ctx, num_epochs, print_batc
         if isinstance(train_data, mx.io.MXDataIter) or isinstance(train_data,mx.image.ImageIter):
             train_data.reset()
         start = time()
-        #i = 0
         for i, batch in enumerate(train_data):
-        #pdb.set_trace()
-        #for batch,label in train_data:
-            data, label, batch_size = _get_batch(batch, ctx)
-            
+            data, label, batch_size = _get_batch(batch, ctx)  
             #batch_size = batch.shape[0]
             losses = []
             with autograd.record():
@@ -166,12 +163,12 @@ def train(train_data, test_data, net, loss, trainer, ctx, num_epochs, print_batc
             n += batch_size
             m += sum([y.size for y in label])
             if print_batches and (i+1) % print_batches == 0:
-                print("Batch %d. Loss: %f, Train acc %f" % (
+                logging.info("Batch %d. Loss: %f, Train acc %f" % (
                     n, train_loss/n, train_acc/m
                 ))
 
         test_acc = evaluate_accuracy(test_data, net, ctx)
-        print("Epoch %d. Loss: %.3f, Train acc %.2f, Test acc %.2f, Time %.1f sec" % (
+        logging.info("Epoch %d. Loss: %.3f, Train acc %.2f, Test acc %.2f, Time %.1f sec" % (
             epoch, train_loss/n, train_acc/m, test_acc, time() - start
         ))
         if cpdir is not None:
