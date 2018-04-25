@@ -13,7 +13,7 @@ dataShape = (3,48,48)
 classNum = 11
 pretrained = 'cp/epoch-000001.params'
 
-lr_base = 0.0001
+lr_base = 0.01
 
  
 def get_net():      
