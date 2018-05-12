@@ -85,7 +85,6 @@ class FACENET_PROXY(object):
                 cv2.circle(canvas, (x,y), 3, (255,0,0))
             cv2.imshow("predict",canvas)
             cv2.waitKey(-1)
-               
         return Y
 
 def bagging_mean(landmarks):
@@ -109,19 +108,20 @@ def load_groundtruth(filepath):
                 continue
             line = line.split('\t')
             path = line[-1]
-            pts = [np.float64(x) for x in line[1:-1]]
-            groundtruth[ path ] = pts
+            pts = [np.float64(x) for x in line[1:-1]]            
+            groundtruth[ path ] = np.reshape( np.asarray(pts),(-1,2) )
     print('load groundtruth %d'%(len(groundtruth)))
     return groundtruth
+    
 def main(rootdir, stdSize = 64, show_image=False):
     ctx = mx.gpu()
-    NM1Proxy = FACENET_PROXY( (3,56,64), 6, "NM1/epoch-000004.params", (0,64,8,64), ctx)
+    NM1Proxy = FACENET_PROXY( (3,48,64), 6, "NM1/epoch-000004.params", (0,64,16,64), ctx)
     F1Proxy = FACENET_PROXY( (3,64,64),10,"F1/epoch-000008.params",(0,64,0,64), ctx )
-    EN1Proxy = FACENET_PROXY( (3,56,64),6,"EN1/epoch-000009.params",(0,64,0,56), ctx )
+    EN1Proxy = FACENET_PROXY( (3,48,64),6,"EN1/epoch-000009.params",(0,64,0,48), ctx )
     #NM1Proxy.verify("c:/dataset/landmark/train/for-mxnet/NM1/", True)
     groundtruth = load_groundtruth( os.path.join( rootdir, 'landmarks.lst' ) )
-    loss0List = []
-    loss1List = []
+    f1Error, f1Failure = [], []
+    l1Error, l1Failure = [], []
     for jpg in os.listdir(rootdir):
         if '.jpg' != os.path.splitext(jpg)[-1]:
             continue
@@ -140,28 +140,34 @@ def main(rootdir, stdSize = 64, show_image=False):
         landmarks =bagging_mean(landmarks)
         #@pdb.set_trace()
         if jpg in groundtruth.keys():
-            loss0 = [ f1[0,k] for k in range(f1.shape[1])]
-            loss1 = []
-            for key in ['left-eye','right-eye','nose','left-mouth','right-mouth']:
-                x,y = landmarks[key][0],landmarks[key][1]
-                loss1.extend([x,y])
-            gnd = groundtruth[jpg]
-            loss0 = np.asarray(loss0) / stdSize
-            loss1 = np.asarray(loss1) / stdSize
-            gnd = np.asarray(gnd)
-            loss0List.append( ((gnd - loss0) * (gnd - loss0) * 0.5 ).mean() )
-            loss1List.append( ((gnd - loss1) * (gnd - loss1) * 0.5 ).mean() )
-        a = np.asarray(loss0List).mean()
-        b = np.asarray(loss1List).mean()
-        print "%f,%f,%f%%"%(a, b, (b-a) * 100 / (a + 0.00000001))
+            f1Res = np.zeros( ( f1.shape[1]/2, 2) )
+            l1Res = np.zeros( ( f1.shape[1]/2, 2) )
+            for k in range(0, f1.shape[1], 2):
+                x,y = f1[0,k]/stdSize, f1[0,k+1]/stdSize
+                f1Res[k/2][0], f1Res[k/2][1] = x, y
+                
+            for k,key in enumerate( ['left-eye','right-eye','nose','left-mouth','right-mouth'] ):
+                x,y = landmarks[key][0]/stdSize,landmarks[key][1]/stdSize
+                l1Res[k,0], l1Res[k,1] = x,y
+            
+            gnd = groundtruth[jpg]    
+            err =  np.sqrt( (( f1Res - gnd ) ** 2).sum(axis=1) )
+            f1Error.extend(  err.tolist() )
+            f1Failure.append( (err > 0.05).tolist() )
+            
+            err =  np.sqrt( (( l1Res - gnd ) ** 2).sum(axis=1) )
+            l1Error.append( err.tolist() )
+            l1Failure.append( (err > 0.05).tolist() )  
+        f1Failure = [np.float64(x) for x in f1Failure]
+        l1Failure = [np.float64(x) for x in l1Failure]
+        print "f1: (%f,%f), l1:(%f,%f)"%( np.mean( f1Error ),np.mean(f1Failure), np.mean(l1Error),np.mean(l1Failure))
         if show_image == True:
             for key in landmarks:
                 x,y = [np.int64(k) for k in landmarks[key]]
                 cv2.circle(img,(x,y),3,(0,255,255))
             cv2.imshow('res',img)
             cv2.waitKey(100)
-    with open('stat.pkl','wb') as f:
-        cPickle.dump( (loss0List, loss1List), f )
+
         
 if __name__== "__main__":
     main(sys.argv[1])

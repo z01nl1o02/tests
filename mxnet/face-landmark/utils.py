@@ -130,7 +130,7 @@ def evaluate_loss(data_iterator, net, ctx=[mx.cpu()]):
     return acc.asscalar() / n #mean of L2Loss
 
 def save_checkpoints(cpdir,net, trainer,epoch):
-    net.save_params('%s/epoch-%.6d.params'%(cpdir,epoch)) #with load_params() may regain most weight() but not all????
+    net.save_params('%s/epoch-%.12d.params'%(cpdir,epoch)) #with load_params() may regain most weight() but not all????
     #net.collect_params().save("yyy-%.4d.params"%i)
     #trainer.save_states('epoch-%.6d.state'%epoch) #load_params() error with kv_store???
     #trainer.load_states('zzz.state')
@@ -188,7 +188,7 @@ def train(train_data, test_data, net, lossfunc, trainer, ctx, num_epochs, lr_ste
             cPickle.dump((loss_train,loss_test,lr_train),f)
             
         if cpdir is not None:
-            save_checkpoints(cpdir,net,trainer,epoch)
+            save_checkpoints(cpdir,net,trainer,iter)
 
 class Residual(nn.HybridBlock):
     def __init__(self, channels, same_shape=True, **kwargs):
