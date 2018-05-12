@@ -5,13 +5,13 @@ import numpy as np
 class FACENET_LAYER(mx.gluon.nn.Block):
     def __init__(self,channels,kernelSize,**kwargs):
         super(FACENET_LAYER,self).__init__(**kwargs)
-        self.conv = mx.gluon.nn.Conv2D(channels,kernel_size = kernelSize, strides = 1, padding=0, activation = 'tanh')
+        self.conv = mx.gluon.nn.Conv2D(channels,kernel_size = kernelSize, strides = 1, padding=0)
         #self.bn = mx.gluon.nn.BatchNorm()
         return
     def forward(self,x):
-        return self.conv(x)
+        #return self.conv(x)
         #out = self.bn(self.conv(x))
-        #return mx.nd.relu(out)
+        return mx.nd.abs( mx.nd.tanh(self.conv(x)) )
         
 class FACENET(mx.gluon.nn.Block):
     def __init__(self, outputNum, verbose=False, **kwargs):
@@ -19,12 +19,12 @@ class FACENET(mx.gluon.nn.Block):
         self.verbose = verbose
         with self.name_scope():
             layers = []
-            layers.append( FACENET_LAYER(20,2) )
-            layers.append( mx.gluon.nn.MaxPool2D( pool_size=(3,3), strides=2 ) )
-            layers.append( FACENET_LAYER(40,2) )
-            layers.append( mx.gluon.nn.MaxPool2D( pool_size=(3,3), strides=2 ) )
-            layers.append( FACENET_LAYER(60,2) )
-            layers.append( mx.gluon.nn.MaxPool2D( pool_size=(3,3), strides=2 ) )
+            layers.append( FACENET_LAYER(20,4) )
+            layers.append( mx.gluon.nn.MaxPool2D( pool_size=(2,2), strides=2 ) )
+            layers.append( FACENET_LAYER(40,3) )
+            layers.append( mx.gluon.nn.MaxPool2D( pool_size=(2,2), strides=2 ) )
+            layers.append( FACENET_LAYER(60,3) )
+            layers.append( mx.gluon.nn.MaxPool2D( pool_size=(2,2), strides=2 ) )
             layers.append( FACENET_LAYER(80,2) )
             layers.append( mx.gluon.nn.Dense(120, activation ='tanh') )
             layers.append( mx.gluon.nn.Dense(outputNum, activation ='tanh') )
