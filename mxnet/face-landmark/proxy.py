@@ -75,8 +75,8 @@ class FACENET_PROXY(object):
         Y = Y.asnumpy()
         for k in range(0, Y.shape[1], 2):
             x,y = Y[0,k] * self.stdSize, Y[0,k+1]*self.stdSize
-            x += self.roi[0]
-            y += self.roi[2]
+            #x += self.roi[0]
+            #y += self.roi[2]
             Y[0,k], Y[0,k+1] = x,y
         if show_image:
             canvas = copy.deepcopy(img)
@@ -115,9 +115,9 @@ def load_groundtruth(filepath):
     
 def main(rootdir, stdSize = 64, show_image=False):
     ctx = mx.gpu()
-    NM1Proxy = FACENET_PROXY( (3,48,64), 6, "NM1/epoch-000004.params", (0,64,16,64), ctx)
-    F1Proxy = FACENET_PROXY( (3,64,64),10,"F1/epoch-000008.params",(0,64,0,64), ctx )
-    EN1Proxy = FACENET_PROXY( (3,48,64),6,"EN1/epoch-000009.params",(0,64,0,48), ctx )
+    NM1Proxy = FACENET_PROXY( (3,48,64), 6, "NM1/weights.params", (0,64,16,64), ctx)
+    F1Proxy = FACENET_PROXY( (3,64,64),10,"F1/weights.params",(0,64,0,64), ctx )
+    EN1Proxy = FACENET_PROXY( (3,48,64),6,"EN1/weights.params",(0,64,0,48), ctx )
     #NM1Proxy.verify("c:/dataset/landmark/train/for-mxnet/NM1/", True)
     groundtruth = load_groundtruth( os.path.join( rootdir, 'landmarks.lst' ) )
     f1Error, f1Failure = [], []
@@ -127,6 +127,7 @@ def main(rootdir, stdSize = 64, show_image=False):
             continue
         img = cv2.imread(os.path.join(rootdir,jpg),1)
         img = cv2.resize(img,(stdSize, stdSize))
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         nm1 = NM1Proxy.predict(img, False)
         f1 = F1Proxy.predict(img,False)
         en1 = EN1Proxy.predict(img,False)
