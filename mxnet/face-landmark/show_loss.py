@@ -11,7 +11,7 @@ plt.figure()
 X = []
 Y = []
 for (x,y) in train_loss:
-    if x < 200:
+    if x < 500:
         continue
     X.append(x)
     Y.append(y)

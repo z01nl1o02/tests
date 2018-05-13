@@ -7,9 +7,9 @@ import pdb,os,sys
 from importlib import import_module
 import logging
 
-dataShape = (3,48,64)
-outputNum = 3*2
-path_root="c:/dataset/landmark/train/for-mxnet/NM1/"
+dataShape = (3,64,64)
+outputNum = 5*2
+path_root="c:/dataset/landmark/train/for-mxnet/F1/"
 
 
 trainBatchSize = 50

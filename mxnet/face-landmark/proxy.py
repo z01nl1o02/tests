@@ -13,6 +13,55 @@ mpl.rcParams['figure.dpi']= 120
 import matplotlib.pyplot as plt
 import cv2
 
+class FACENET_S2_PROXY(object):
+    def __init__(self, outputNum, modelpath, cropSize, ctx, stdSize = 24):
+        self.mean = [123.68, 116.28, 103.53]
+        self.std = [58.395, 57.12, 57.375]
+        self.outputNum = outputNum
+        self.cropSize = cropSize
+        self.stdSize = stdSize
+        self.ctx= ctx
+        mod = import_module('symbol.facenetS2')
+        self.net = mod.get_symbol(outputNum,self.ctx)
+        self.net.load_params(modelpath,ctx=self.ctx) 
+        
+    def predict(self, img, anchor,show_image = False):
+        cx,cy = anchor
+        x0 = cx - self.cropSize / 2
+        y0 = cy - self.cropSize / 2
+        if x0 < 0:
+            x0 = 0
+        if y0 < 0:
+            y0 = 0
+        x1 = x0 + self.cropSize
+        y1 = y0 + self.cropSize
+        if x1 >= img.shape[1]:
+            x1 = img.shape[1]
+        if y1 >= img.shape[0]:
+            y1 = img.shape[0]
+        if x1 - x0 < self.cropSize / 3 or y1 - y0 < self.cropSize / 3:
+            return None
+        x0,x1,y0,y1 = [ np.int64(x) for x in [x0,x1,y0,y1] ]
+        X = cv2.resize( img[y0:y1,x0:x1,:], (self.stdSize, self.stdSize) )*1.0
+        X = np.transpose(X,(2,0,1))
+        
+        for k in range(3):
+            X[k,:,:] = (X[k,:,:] - self.mean[k]) / self.std[k]
+        X = np.expand_dims(X,0) 
+        X = mx.nd.array(X).as_in_context(self.ctx)
+        Y = self.net(X)
+        Y = np.reshape( Y.asnumpy(), (2,))
+       # pdb.set_trace()
+        Y[0] *= img.shape[1]
+        Y[1] *= img.shape[0]
+        if show_image:
+            canvas = copy.deepcopy(img)
+            x,y = np.int64(Y[0] + cx),np.int64( Y[1] + cy)
+            cv2.circle(canvas, (x,y), 3, (255,0,0))
+            cv2.imshow("predict",canvas)
+            cv2.waitKey(-1)
+        return Y
+
 
 class FACENET_PROXY(object):
     def __init__(self, dataShape, outputNum, modelpath, roi, ctx, stdSize = 64):
@@ -115,9 +164,11 @@ def load_groundtruth(filepath):
     
 def main(rootdir, stdSize = 64, show_image=False):
     ctx = mx.gpu()
-    NM1Proxy = FACENET_PROXY( (3,48,64), 6, "NM1/weights.params", (0,64,16,64), ctx)
-    F1Proxy = FACENET_PROXY( (3,64,64),10,"F1/weights.params",(0,64,0,64), ctx )
-    EN1Proxy = FACENET_PROXY( (3,48,64),6,"EN1/weights.params",(0,64,0,48), ctx )
+    NM1Proxy = FACENET_PROXY( (3,48,64), 6, "L1/NM1/weights.params", (0,64,16,64), ctx)
+    F1Proxy = FACENET_PROXY( (3,64,64),10,"L1/F1/weights.params",(0,64,0,64), ctx )
+    EN1Proxy = FACENET_PROXY( (3,48,64),6,"L1/EN1/weights.params",(0,64,0,48), ctx )
+    LE21Proxy = FACENET_S2_PROXY( 2, "L2/LE21/weights.params",25, ctx, stdSize = 24)
+    LE22Proxy = FACENET_S2_PROXY( 2, "L2/LE22/weights.params",30, ctx, stdSize = 24)
     #NM1Proxy.verify("c:/dataset/landmark/train/for-mxnet/NM1/", True)
     groundtruth = load_groundtruth( os.path.join( rootdir, 'landmarks.lst' ) )
     f1Error, f1Failure = [], []
@@ -132,6 +183,7 @@ def main(rootdir, stdSize = 64, show_image=False):
         f1 = F1Proxy.predict(img,False)
         en1 = EN1Proxy.predict(img,False)
         
+        
         landmarks = {}
         landmarks['left-eye'] = ( (f1[0,0],f1[0,1]), (en1[0,0],en1[0,1]) )
         landmarks['right-eye'] = ( (f1[0,2],f1[0,3]), (en1[0,2],en1[0,3]) )
@@ -139,6 +191,12 @@ def main(rootdir, stdSize = 64, show_image=False):
         landmarks['left-mouth'] = ( (f1[0,6],f1[0,7]), (nm1[0,2],nm1[0,3]) )
         landmarks['right-mouth'] = ( (f1[0,8],f1[0,9]), (nm1[0,4],nm1[0,5]) )
         landmarks =bagging_mean(landmarks)
+        
+        le21 = LE21Proxy.predict(img,(landmarks['left-eye'][0],landmarks['left-eye'][1]),False)
+        le22 = LE22Proxy.predict(img,(landmarks['left-eye'][0],landmarks['left-eye'][1]),False)
+        #pdb.set_trace()
+        landmarks['left-eye'][0] += ( le21[0] + le21[0] ) * 0.5
+        landmarks['left-eye'][1] += ( le21[1] + le21[1] ) * 0.5
         #@pdb.set_trace()
         if jpg in groundtruth.keys():
             f1Res = np.zeros( ( f1.shape[1]/2, 2) )
@@ -161,14 +219,14 @@ def main(rootdir, stdSize = 64, show_image=False):
             l1Failure.append( (err > 0.05).tolist() )  
         f1Failure = [np.float64(x) for x in f1Failure]
         l1Failure = [np.float64(x) for x in l1Failure]
-        print "f1: (%f,%f), l1:(%f,%f)"%( np.mean( f1Error ),np.mean(f1Failure), np.mean(l1Error),np.mean(l1Failure))
+        
         if show_image == True:
             for key in landmarks:
                 x,y = [np.int64(k) for k in landmarks[key]]
                 cv2.circle(img,(x,y),3,(0,255,255))
             cv2.imshow('res',img)
             cv2.waitKey(100)
-
+    print "f1: (%f,%f), l1:(%f,%f)"%( np.mean( f1Error ),np.mean(f1Failure), np.mean(l1Error),np.mean(l1Failure))
         
 if __name__== "__main__":
     main(sys.argv[1])
