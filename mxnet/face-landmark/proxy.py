@@ -169,6 +169,15 @@ def main(rootdir, stdSize = 64, show_image=False):
     EN1Proxy = FACENET_PROXY( (3,48,64),6,"L1/EN1/weights.params",(0,64,0,48), ctx )
     LE21Proxy = FACENET_S2_PROXY( 2, "L2/LE21/weights.params",25, ctx, stdSize = 24)
     LE22Proxy = FACENET_S2_PROXY( 2, "L2/LE22/weights.params",30, ctx, stdSize = 24)
+    RE21Proxy = FACENET_S2_PROXY( 2, "L2/RE21/weights.params",25, ctx, stdSize = 24)
+    RE22Proxy = FACENET_S2_PROXY( 2, "L2/RE22/weights.params",30, ctx, stdSize = 24)    
+    N21Proxy = FACENET_S2_PROXY( 2, "L2/N21/weights.params",25, ctx, stdSize = 24)
+    N22Proxy = FACENET_S2_PROXY( 2, "L2/N22/weights.params",30, ctx, stdSize = 24)   
+
+    LM21Proxy = FACENET_S2_PROXY( 2, "L2/LM21/weights.params",25, ctx, stdSize = 24)
+    LM22Proxy = FACENET_S2_PROXY( 2, "L2/LM22/weights.params",30, ctx, stdSize = 24)     
+    RM21Proxy = FACENET_S2_PROXY( 2, "L2/RM21/weights.params",25, ctx, stdSize = 24)
+    RM22Proxy = FACENET_S2_PROXY( 2, "L2/RM22/weights.params",30, ctx, stdSize = 24)     
     #NM1Proxy.verify("c:/dataset/landmark/train/for-mxnet/NM1/", True)
     groundtruth = load_groundtruth( os.path.join( rootdir, 'landmarks.lst' ) )
     f1Error, f1Failure = [], []
@@ -194,9 +203,29 @@ def main(rootdir, stdSize = 64, show_image=False):
         
         le21 = LE21Proxy.predict(img,(landmarks['left-eye'][0],landmarks['left-eye'][1]),False)
         le22 = LE22Proxy.predict(img,(landmarks['left-eye'][0],landmarks['left-eye'][1]),False)
-        #pdb.set_trace()
-        landmarks['left-eye'][0] += ( le21[0] + le21[0] ) * 0.5
-        landmarks['left-eye'][1] += ( le21[1] + le21[1] ) * 0.5
+        landmarks['left-eye'][0] += ( le21[0] + le22[0] ) * 0.5
+        landmarks['left-eye'][1] += ( le21[1] + le22[1] ) * 0.5
+     
+        re21 = RE21Proxy.predict(img,(landmarks['right-eye'][0],landmarks['right-eye'][1]),False)
+        re22 = RE22Proxy.predict(img,(landmarks['right-eye'][0],landmarks['right-eye'][1]),False)
+        landmarks['right-eye'][0] += ( re21[0] + re22[0] ) * 0.5
+        landmarks['right-eye'][1] += ( re21[1] + re22[1] ) * 0.5     
+   
+        n21 = N21Proxy.predict(img,(landmarks['nose'][0],landmarks['nose'][1]),False)
+        n22 = N22Proxy.predict(img,(landmarks['nose'][0],landmarks['nose'][1]),False)
+        landmarks['nose'][0] += ( n21[0] + n22[0] ) * 0.5
+        landmarks['nose'][1] += ( n21[1] + n22[1] ) * 0.5 
+        
+        lm21 = LM21Proxy.predict(img,(landmarks['left-mouth'][0],landmarks['left-mouth'][1]),False)
+        lm22 = LM22Proxy.predict(img,(landmarks['left-mouth'][0],landmarks['left-mouth'][1]),False)
+        landmarks['left-mouth'][0] += ( lm21[0] + lm22[0] ) * 0.5
+        landmarks['left-mouth'][1] += ( lm21[1] + lm22[1] ) * 0.5 
+        
+        rm21 = RM21Proxy.predict(img,(landmarks['right-mouth'][0],landmarks['right-mouth'][1]),False)
+        rm22 = RM22Proxy.predict(img,(landmarks['right-mouth'][0],landmarks['right-mouth'][1]),False)
+        landmarks['right-mouth'][0] += ( rm21[0] + rm22[0] ) * 0.5
+        landmarks['right-mouth'][1] += ( rm21[1] + rm22[1] ) * 0.5 
+        
         #@pdb.set_trace()
         if jpg in groundtruth.keys():
             f1Res = np.zeros( ( f1.shape[1]/2, 2) )
