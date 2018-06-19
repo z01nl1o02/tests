@@ -4,20 +4,25 @@ mpl.rcParams['figure.dpi']= 150
 from matplotlib import pyplot as plt
 
 from mxnet import image
+import pdb
+import cv2
+import numpy as np
 
-style_img = image.imread('img/autumn_oak.jpg')
-content_img = image.imread('img/pine-tree.jpg')
+style_img = image.imread('img/style.jpg')
+content_img = image.imread('img/content.jpg')
 
+'''
 plt.figure()
 plt.imshow(style_img.asnumpy())
 plt.figure()
 plt.imshow(content_img.asnumpy())
 plt.show()
-
+'''
 from mxnet import nd
 
 rgb_mean = nd.array([0.485, 0.456, 0.406])
 rgb_std = nd.array([0.229, 0.224, 0.225])
+
 
 def preprocess(img, image_shape):
     img = image.imresize(img, *image_shape)
@@ -26,7 +31,8 @@ def preprocess(img, image_shape):
 
 def postprocess(img):
     img = img[0].as_in_context(rgb_std.context)
-    return (img.transpose((1,2,0))*rgb_std + rgb_mean).clip(0,1)
+    img = (img.transpose((1,2,0))*rgb_std + rgb_mean).clip(0,1)
+    return img, cv2.cvtColor(np.uint8(img.asnumpy()*255),cv2.COLOR_RGB2BGR)
     
     
 
@@ -35,7 +41,7 @@ from mxnet.gluon.model_zoo import vision as models
 pretrained_net = models.vgg19(pretrained=True)
 pretrained_net
 
-style_layers = [0,5,10,19,28] #layer to learn style
+style_layers = [16,19,21,28] #layer to learn style
 content_layers = [25] #layer to learn content
 
 
@@ -46,6 +52,8 @@ from mxnet.gluon import nn
 def get_net(pretrained_net, content_layers, style_layers):
     net = nn.Sequential()
     for i in range(max(content_layers+style_layers)+1):
+        #pdb.set_trace()
+        print i,pretrained_net.features[i]
         net.add(pretrained_net.features[i])
     return net
 
@@ -79,7 +87,7 @@ def gram(x):
     y = x.reshape((c, int(n)))
     return nd.dot(y, y.T) / n
 
-gram(nd.ones((1,3,4,4)))
+#gram(nd.ones((1,3,4,4)))
 
 def style_loss(yhat, gram_y):
     return (gram(yhat) - gram_y).square().mean()
@@ -94,8 +102,8 @@ def tv_loss(yhat):
 #set different weight to each loss
 channels = [net[l].weight.shape[0] for l in style_layers]
 style_weights = [1e4/n**2 for n in channels]
-content_weights = [1]
-tv_weight = 10
+content_weights = [5]
+tv_weight = 100
 
 def sum_loss(loss, preds, truths, weights):
     return nd.add_n(*[w*loss(yhat, y) for w, yhat, y in zip(
@@ -112,7 +120,7 @@ def get_styles(image_shape):
     _, style_y = extract_features(style_x, content_layers, style_layers)
     style_y = [gram(y) for y in style_y]
     return style_x, style_y
-    
+import pdb
 from time import time
 from mxnet import autograd
 #training
@@ -136,19 +144,22 @@ def train(x, max_epochs, lr, lr_decay_epoch=200):
         # add sync to avoid large mem usage
         nd.waitall()
 
-        if i and i % 20 == 0:
+        if i and i % 50 == 0:
             print('batch %3d, content %.2f, style %.2f, '
                   'TV %.2f, time %.1f sec' % (
                 i, content_L.asscalar(), style_L.asscalar(),
                 tv_L.asscalar(), time()-tic))
             tic = time()
+            canvas,img = postprocess(x)
+            cv2.imwrite('result_%d.jpg'%i,img)
 
         if i and i % lr_decay_epoch == 0:
             lr *= 0.1
             print('change lr to ', lr)
-
-    plt.imshow(postprocess(x).asnumpy())
-    plt.show()
+    canvas,img = postprocess(x)
+    cv2.imwrite('result.jpg',img)
+    #plt.imshow(canvas.asnumpy())
+    #plt.show()
     return x
 
 #test with 300x200 
@@ -156,7 +167,7 @@ import mxnet as mx
 import sys
 sys.path.append('..')
 
-image_shape = (300,200)
+image_shape = (600,600)
 
 ctx = mx.gpu()
 net.collect_params().reset_ctx(ctx)
@@ -167,7 +178,7 @@ style_x, style_y = get_styles(image_shape)
 x = content_x.copyto(ctx)
 x.attach_grad()
 
-y = train(x, 500, 0.1)
+y = train(x, 5000, 0.1)
 
 
 
