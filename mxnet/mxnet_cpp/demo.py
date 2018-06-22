@@ -222,4 +222,5 @@ for epoch in range(100):
         num += 1
     print('epoch %d,%.2fms, train loss %f test loss %f test precision %f'%(epoch,time() - t0,cls_loss.get()[1],  \
           loss / (num * batchSize), hit * 1.0 / (num * batchSize) ))
-    net.save_params('ocrnet_%.5d.params'%epoch)
+    #net.save_params('ocrnet_%.5d.params'%epoch)
+    net.export('ocrnet_%.5d'%epoch)
