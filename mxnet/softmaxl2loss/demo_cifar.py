@@ -7,9 +7,10 @@ import os,sys,pdb
 
 root='c:/dataset/cifar/split/'
 outdir = 'output/'
-pretrain = -1 #round number
+#round number
+pretrain =  4000
 
-
+lr0 = 0.01
 batchSize=20
 imgSize=28 #after crop
 channelNum=3
@@ -28,47 +29,65 @@ testIter = mx.image.ImageIter(batchSize,(channelNum,imgSize, imgSize),label_widt
                                shuffle=False,aug_list=testAugList)
 
 class CIFARCONV(nn.HybridBlock):
-    def __init__(self,ch,kernel=3,stride=1,padding=1,**kwargs):
+    def __init__(self,ch,downsample=False,**kwargs):
         super(CIFARCONV, self).__init__(**kwargs)
+        if downsample:
+            stride = 2
+        else:
+            stride = 1
         with self.name_scope():
-            self.conv = nn.Conv2D(channels=ch, kernel_size=kernel, strides=stride,padding=padding)
-            self.bn=nn.BatchNorm()
+            self.conv1 = nn.Conv2D(channels=ch, kernel_size=3, strides=stride,padding=1)
+            self.bn1=nn.BatchNorm()
+            self.conv2 = nn.Conv2D(channels=ch, kernel_size=3, strides=1,padding=1)
+            self.bn2=nn.BatchNorm()
+            if downsample:
+                self.conv3=nn.Conv2D(channels=ch, kernel_size=3, strides=stride,padding=1 )
+                self.bn3=nn.BatchNorm()
+            else:
+                self.conv3, self.bn3 = None, None
         return
     def hybrid_forward(self, F, x, *args, **kwargs):
-        out=F.relu(self.bn(self.conv(x)))
-        return out
+        out=F.relu(self.bn1(self.conv1(x)))
+        out=F.relu(self.bn2(self.conv2(out)))
+        if self.conv3 is not None:
+            x = F.relu(self.bn3(self.conv3(x)))
+        return F.relu(x + out)
 
 class CIFARNET(nn.HybridBlock):
     def __init__(self,classNum,verbose=False,**kwargs):
         super(CIFARNET,self).__init__(**kwargs)
         with self.name_scope():
-            self.conv1=CIFARCONV(ch=6,stride=1,kernel=3,padding=1)
-            self.conv2=CIFARCONV(ch=6,stride=1,kernel=5,padding=2)
-            self.conv3=CIFARCONV(ch=12,stride=2,kernel=3,padding=1)
-            self.conv4=CIFARCONV(ch=24,stride=2,kernel=3,padding=1)
-            self.pool = nn.GlobalAvgPool2D()
-            self.fc1 = nn.Dense(64)
-            self.fc2 = nn.Dense(classNum)
+            self.convs,self.fcs = nn.HybridSequential(), nn.HybridSequential()
+            self.convs.add( nn.Conv2D(channels=64,kernel_size=3,strides=1,padding=1)  )
+            self.convs.add( CIFARCONV(ch=64) )
+            self.convs.add( CIFARCONV(ch=64) )
+            self.convs.add( CIFARCONV(ch=128,downsample=True) )
+            self.convs.add( CIFARCONV(ch=128) )
+            self.convs.add( CIFARCONV(ch=256,downsample=True) )
+            self.convs.add( CIFARCONV(ch=256) )
+            self.fcs.add( nn.GlobalMaxPool2D() )
+            self.fcs.add(nn.Dense(classNum))
         return
     def hybrid_forward(self, F, x, *args, **kwargs):
-        out = self.conv1(x)
-        out = self.conv2(out)
-        out = self.conv3(out)
-        out = self.conv4(out)
-        out = F.relu( self.fc1( self.pool(out) ) )
-        out = F.relu( self.fc2(out))
+        out = x
+        for net in self.convs:
+            out = net(out)
+        for fc in self.fcs:
+            out = fc(out)
         return out
 
 net = CIFARNET(classNum)
 net.initialize(ctx = ctx)
 net.hybridize()
 
+print net
+
 if pretrain >= 0:
     net.load_params(os.path.join(outdir,'cifar-%.4d.params'%pretrain),ctx=ctx)
-    print 'load model'
+    print 'load model ....'
 
 
-trainer = gluon.Trainer(net.collect_params(), "sgd", {'learning_rate':1.0,"wd":0.00005})
+trainer = gluon.Trainer(net.collect_params(), "sgd", {'learning_rate':lr0,"wd":0.00005})
 
 loss_ce = gluon.loss.SoftmaxCrossEntropyLoss()
 
@@ -86,18 +105,28 @@ class LOSSREC(mx.metric.EvalMetric):
 
 train_loss = LOSSREC("train-error")
 test_loss = LOSSREC("test-error")
+from sklearn.metrics import accuracy_score
 
-def calc_hr(predY,Y):
-    if isinstance(predY,mx.nd.NDArray):
-        predY = predY.asnumpy()
-    if isinstance(Y,mx.nd.NDArray):
-        Y = Y.asnumpy()
-    num, dim = predY.shape
-    rowMax = np.tile( np.reshape( predY.max(axis=1), (-1,1) ), (1, dim ) )
-    res = rowMax == predY
-    Y = np.reshape( Y,(1,-1) )
-    hr = np.mean( [ res[row,np.int32(col)] for row, col in enumerate(Y.tolist()[0])  ] )
-    return hr
+class HITRATE(object):
+    def __init__(self,name):
+        self.Y, self.Yhat = [],[]
+        self.name = name
+    def update(self,Y,predY):
+        if isinstance(predY,mx.nd.NDArray):
+            predY = predY.asnumpy()
+        if isinstance(Y,mx.nd.NDArray):
+            Y = Y.asnumpy()
+        Yhat = np.argmax(predY,axis=1).reshape(Y.shape)
+        Yhat = Yhat.reshape((1,-1)).tolist()[0]
+        Y = Y.reshape((1,-1)).tolist()[0]
+        self.Y.extend(Y)
+        self.Yhat.extend(Yhat)
+        return
+    def __str__(self):
+       return "({},{:.3f})".format(self.name,accuracy_score(self.Y,self.Yhat))
+    def reset(self):
+        self.Y, self.Yhat = [], []
+        return
 
 from matplotlib import pyplot as plt
 
@@ -140,7 +169,8 @@ t0 = time()
 
 visualloss = VISUAL_LOSS()
 
-lr_steps = [5000,10000,20000,40000]
+lr_steps = [20000,40000]
+
 
 round = 0
 for epoch in range(200):
@@ -150,7 +180,6 @@ for epoch in range(200):
         if round in set(lr_steps):
             trainer.set_learning_rate(trainer.learning_rate * 0.1)
 
-
         X,Y = batch.data[0].as_in_context(ctx), batch.label[0].as_in_context(ctx)
         with autograd.record():
             predY = net.forward(X)
@@ -158,22 +187,21 @@ for epoch in range(200):
         loss.backward()
         trainer.step(batchSize)
         train_loss.update(loss)
-        if batchidx % 100 == 0:
+        if round % 100 == 0:
             print 'round {} {}'.format(round,train_loss.get())
             visualloss.update_train(round,train_loss.get()[1])
             visualloss.show()
-    hrlist = []
+    hr = HITRATE("hit-rate")
     testIter.reset()
     for batch in testIter:
         X,Y = batch.data[0].as_in_context(ctx), batch.label[0].as_in_context(ctx)
         predY = net.forward(X)
         loss = loss_ce(predY,Y)
         test_loss.update(loss)
-        hrlist.append(calc_hr(predY,Y))
+        hr.update(Y,predY)
     visualloss.update_test(round,test_loss.get()[1])
     visualloss.show()
-    hr = np.mean(hrlist)
-    print 'epoch {} {:.2f} min {} {} hr:{:.2f}'.format( epoch, (time()-t0)/60.0,
+    print 'epoch {} lr {:.5f} {:.2f} min {} {} {}'.format( epoch,trainer.learning_rate, (time()-t0)/60.0,
               train_loss.get(),test_loss.get(), hr)
     #net.export(os.path.join(outdir,"cifar"),epoch=round)
     net.save_params(os.path.join(outdir,'cifar-%.4d.params'%round))
