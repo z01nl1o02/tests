@@ -6,6 +6,10 @@ import mxnet.autograd as autograd
 import os,sys,pdb
 
 root='c:/dataset/cifar/split/'
+outdir = 'output/'
+pretrain = -1 #round number
+
+
 batchSize=20
 imgSize=28 #after crop
 channelNum=3
@@ -58,6 +62,11 @@ class CIFARNET(nn.HybridBlock):
 net = CIFARNET(classNum)
 net.initialize(ctx = ctx)
 net.hybridize()
+
+if pretrain >= 0:
+    net.load_params(os.path.join(outdir,'cifar-%.4d.params'%pretrain),ctx=ctx)
+    print 'load model'
+
 
 trainer = gluon.Trainer(net.collect_params(), "sgd", {'learning_rate':1.0,"wd":0.00005})
 
@@ -131,11 +140,17 @@ t0 = time()
 
 visualloss = VISUAL_LOSS()
 
+lr_steps = [5000,10000,20000,40000]
+
 round = 0
 for epoch in range(200):
     trainIter.reset()
     for batchidx, batch in enumerate(trainIter):
         round += 1
+        if round in set(lr_steps):
+            trainer.set_learning_rate(trainer.learning_rate * 0.1)
+
+
         X,Y = batch.data[0].as_in_context(ctx), batch.label[0].as_in_context(ctx)
         with autograd.record():
             predY = net.forward(X)
@@ -160,7 +175,8 @@ for epoch in range(200):
     hr = np.mean(hrlist)
     print 'epoch {} {:.2f} min {} {} hr:{:.2f}'.format( epoch, (time()-t0)/60.0,
               train_loss.get(),test_loss.get(), hr)
-    net.export("cifar")
+    #net.export(os.path.join(outdir,"cifar"),epoch=round)
+    net.save_params(os.path.join(outdir,'cifar-%.4d.params'%round))
 
 plt.show()
 
