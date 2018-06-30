@@ -8,9 +8,10 @@ import os,sys,pdb
 root='c:/dataset/cifar/split/'
 outdir = 'output/'
 #round number
-pretrain =  4000
+pretrain = -1
 
-lr0 = 0.01
+lr0 = 0.1
+wd = 0.005
 batchSize=20
 imgSize=28 #after crop
 channelNum=3
@@ -60,11 +61,8 @@ class CIFARNET(nn.HybridBlock):
             self.convs,self.fcs = nn.HybridSequential(), nn.HybridSequential()
             self.convs.add( nn.Conv2D(channels=64,kernel_size=3,strides=1,padding=1)  )
             self.convs.add( CIFARCONV(ch=64) )
-            self.convs.add( CIFARCONV(ch=64) )
             self.convs.add( CIFARCONV(ch=128,downsample=True) )
-            self.convs.add( CIFARCONV(ch=128) )
             self.convs.add( CIFARCONV(ch=256,downsample=True) )
-            self.convs.add( CIFARCONV(ch=256) )
             self.fcs.add( nn.GlobalMaxPool2D() )
             self.fcs.add(nn.Dense(classNum))
         return
@@ -87,7 +85,7 @@ if pretrain >= 0:
     print 'load model ....'
 
 
-trainer = gluon.Trainer(net.collect_params(), "sgd", {'learning_rate':lr0,"wd":0.00005})
+trainer = gluon.Trainer(net.collect_params(), "sgd", {'learning_rate':lr0,"wd":wd})
 
 loss_ce = gluon.loss.SoftmaxCrossEntropyLoss()
 
