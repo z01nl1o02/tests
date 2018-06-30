@@ -28,7 +28,7 @@ def get_lst(root,outpath, name2labelPath):
     name2label = get_label_name_dict(root)
     for name in name2label.keys():
         jpgs = [os.path.join(name,jpg) for jpg in os.listdir( os.path.join(root,name) ) ]
-        label = str(name2label[name][0]) #only support one label
+        label = str(name2label[name][0] * 1.0) #only support one label
         for jpg in jpgs:
             line = '\t'.join([str(imgid), label, jpg]) 
             imgid += 1
