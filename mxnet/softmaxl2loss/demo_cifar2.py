@@ -88,6 +88,19 @@ class CIFARNET(nn.Block):
         for fc in self.fcs:
             out = fc(out)
         return out
+    def project(self,action): #get filter of one layer
+        if action == 'start':
+            print 'start project'
+            self.convs[-1].setproj( mx.ndarray.ones(1,ctx=ctx) * 200)
+        elif action == 'set':
+            print 'set project'
+            self.convs[-1].setproj(mx.ndarray.ones(1,ctx=ctx) * 20)
+        elif action == 'end':
+            print 'end project'
+            self.convs[-1].setproj(mx.ndarray.ones(1,ctx=ctx) * 0)
+        else:
+            print 'unk {}'.format(action)
+        return
 
 net = CIFARNET(classNum)
 net.initialize(ctx = ctx)
@@ -175,6 +188,25 @@ class VISUAL_LOSS(object):
         plt.pause(0.05)
         return
 
+def do_project(dataIter,net):
+    dataIter.reset()
+    net.project('start')
+    for batch in dataIter:
+        X, Y = batch.data[0].as_in_context(ctx), batch.label[0].as_in_context(ctx)
+        predY = net.forward(X)
+        predY.wait_to_read()
+    net.project('set')
+    dataIter.reset()
+    for batch in dataIter:
+        X, Y = batch.data[0].as_in_context(ctx), batch.label[0].as_in_context(ctx)
+        predY = net.forward(X)
+        predY.wait_to_read()
+        net.project('end')
+        predY = net.forward(X)
+        predY.wait_to_read()
+        break #call forward()
+    return net
+
 from time import time
 t0 = time()
 
@@ -186,11 +218,13 @@ lr_steps = [20000,40000]
 round = 0
 for epoch in range(200):
     trainIter.reset()
+
+    #do_project(trainIter,net)
+
     for batchidx, batch in enumerate(trainIter):
         round += 1
         if round in set(lr_steps):
             trainer.set_learning_rate(trainer.learning_rate * 0.1)
-
         X,Y = batch.data[0].as_in_context(ctx), batch.label[0].as_in_context(ctx)
         with autograd.record():
             predY = net.forward(X)
@@ -202,6 +236,7 @@ for epoch in range(200):
             print 'round {} {}'.format(round,train_loss.get())
             visualloss.update_train(round,train_loss.get()[1])
             visualloss.show()
+
     hr = HITRATE("hit-rate")
     testIter.reset()
     for batch in testIter:
@@ -216,6 +251,10 @@ for epoch in range(200):
               train_loss.get(),test_loss.get(), hr)
     #net.export(os.path.join(outdir,"cifar"),epoch=round)
     net.save_params(os.path.join(outdir,'cifar-%.4d.params'%round))
+    # projection
+    if (1+epoch) % 5 == 0:
+        net = do_project(trainIter,net)
+
 
 plt.show()
 
