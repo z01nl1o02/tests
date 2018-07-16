@@ -20,6 +20,11 @@ classNum = 10
 dataShape=(batchSize,channelNum,imgSize, imgSize)
 ctx = mx.gpu()
 
+
+action_null = 0
+action_start_projection = 1
+action_end_projection = 2
+
 trainAugList = mx.image.CreateAugmenter((channelNum,imgSize, imgSize),rand_crop=True,rand_mirror=True,mean=True,std=True)
 trainIter = mx.image.ImageIter(batchSize,(channelNum,imgSize, imgSize),label_width=1,
                                path_imglist='train.lst',path_root=os.path.join(root,'train'),
@@ -91,13 +96,13 @@ class CIFARNET(nn.Block):
     def project(self,action): #get filter of one layer
         if action == 'start':
             print 'start project'
-            self.convs[-1].setproj( mx.ndarray.ones(1,ctx=ctx) * 200)
+            self.convs[-1].set_project_action_code( mx.ndarray.ones(1,ctx=ctx) * action_start_projection)
         elif action == 'set':
             print 'set project'
-            self.convs[-1].setproj(mx.ndarray.ones(1,ctx=ctx) * 20)
+            self.convs[-1].set_project_action_code(mx.ndarray.ones(1,ctx=ctx) * action_end_projection)
         elif action == 'end':
             print 'end project'
-            self.convs[-1].setproj(mx.ndarray.ones(1,ctx=ctx) * 0)
+            self.convs[-1].set_project_action_code(mx.ndarray.ones(1,ctx=ctx) * action_null)
         else:
             print 'unk {}'.format(action)
         return
@@ -232,7 +237,7 @@ for epoch in range(200):
         loss.backward()
         trainer.step(batchSize)
         train_loss.update(loss)
-        if round % 1 == 0:
+        if round % 5 == 0:
             print 'round {} {}'.format(round,train_loss.get())
             visualloss.update_train(round,train_loss.get()[1])
             visualloss.show()

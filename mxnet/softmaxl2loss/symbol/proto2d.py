@@ -2,7 +2,7 @@ import mxnet as mx
 from mxnet import gluon
 from mxnet.gluon import nn
 from mxnet import ndarray as nd
-
+import cPickle
 
 def im2col(img,ks):
     ctx = img.context
@@ -27,12 +27,12 @@ class Proto2D(mx.operator.CustomOp):
         self.projWeight = None
         return
 
-
+    
     def forward(self, is_train, req, in_data, out_data, aux):
         ctx = in_data[0].context
         data = in_data[0]
-        proj = in_data[1]
-        weight = in_data[2]
+        proj = aux[0]
+        weight = in_data[1]
 
 
         if self.verbose:
@@ -44,18 +44,21 @@ class Proto2D(mx.operator.CustomOp):
         batchSize, inChNum, height, width = data.shape
         outChNum, inChNum, kernelSize, _ = weight.shape
 
-
+        weightMat = nd.zeros((outChNum,width*height,inChNum * kernelSize * kernelSize),ctx=ctx)
+        for outchidx in range(outChNum):
+            w = nd.reshape(weight[outchidx],(1,-1))
+            w = nd.tile( w, (width * height, 1) )
+            weightMat[outchidx] = w
 
         output = nd.zeros((batchSize, outChNum, height, width), ctx = ctx)
         for batchidx in range(batchSize):
            dataCur=data[batchidx]
            dataCur=im2col(dataCur,kernelSize)
            for outchidx in range(outChNum):
-               weightCur=nd.reshape(weight[outchidx],(1,-1))
-               weightCur=nd.tile(weightCur,(dataCur.shape[0],1))
+               weightCur= weightMat[outchidx]
                df = ((dataCur - weightCur)**2).sum(axis=1) + 0.00001
                output[batchidx,outchidx] = nd.reshape(-1*nd.log(df),(height,width))
-
+        
         if self.verbose:
             print 'forward output start'
             print 'output {} {} {}'.format(output.min(), output.max(), output.mean())
@@ -65,7 +68,7 @@ class Proto2D(mx.operator.CustomOp):
             self.minDist = nd.zeros(outChNum,ctx = ctx) - 99999.0
             self.projWeight = nd.zeros(weight.shape, ctx=ctx)
 
-        if proj[0] >= 100: #start
+        if proj[0] == 1: #start
             dataPading = nd.pad(data,mode='constant',pad_width=[0,0,0,0,0,2,0,2],constant_value=0)
             for batchidx in range(batchSize):
                 dataCur =  dataPading[batchidx]
@@ -77,7 +80,7 @@ class Proto2D(mx.operator.CustomOp):
                                 locy,locx = y, x
                     if output[batchidx,outchidx][locy,locx] >  self.minDist[outchidx]:
                         self.projWeight[outchidx] = dataPading[batchidx][:,locy:locy+kernelSize, locx:locx+kernelSize]
-        elif proj[0] >= 10: #end
+        elif proj[0] == 2: #end
            for outchidx in range(outChNum):
                if self.minDist[outchidx] < -99:
                    continue
@@ -131,7 +134,7 @@ class Proto2D(mx.operator.CustomOp):
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
         dataIn = in_data[0]
         dataOut = out_data[0]
-        weight = in_data[2]
+        weight = in_data[1]
         lambdaR2 = 0.00005
         costR2 = self.get_R2(dataOut,lambdaR2)
         grad = out_grad[0] + costR2
@@ -180,28 +183,31 @@ class Proto2DProp(mx.operator.CustomOpProp):
         self.kernelSize = int(kernelSize)
         self.channels = int(channels)
     def list_arguments(self):
-        return ["input","projflag","weight"]
+        return ["input","weight"]
     def list_outputs(self):
         return ['output']
+    def list_auxiliary_states(self):
+        return ['project_action']
     def infer_shape(self, in_shape):
         data_shape = in_shape[0]
-        proj_shape = in_shape[1]
-        weight_shape = in_shape[2]
+        weight_shape = in_shape[1]
         output_shape = (data_shape[0],weight_shape[0],data_shape[2],data_shape[3]) #
-        return (data_shape,(1,),weight_shape),(output_shape,),()
+        aux_shape = (1,)
+        return (data_shape,weight_shape),(output_shape,),(aux_shape,)
     def infer_type(self, in_type):
         dtype = in_type[0]
-        return (dtype,dtype,dtype),(dtype,),()
+        return (dtype,dtype),(dtype,),(dtype,)
     def create_operator(self, ctx, in_shapes, in_dtypes):
         return Proto2D(self.channels,self.kernelSize)
 
 class Proto2DBlock(nn.Block):
-    def __init__(self,in_channels, out_channels,kernel_size=3, **kwargs):
+    def __init__(self,in_channels, out_channels, kernel_size=3, **kwargs):
         super(Proto2DBlock,self).__init__(**kwargs)
         #configure parameters
         self.kernelSize = kernel_size
         self.channels = out_channels
-        self.proj = nd.ones((1,),ctx=mx.gpu()) - 2
+        self.project_action = None
+        self.ctx = None
         #learnable parameters
         self.weights = self.params.get("weight",shape = (out_channels, in_channels, kernel_size, kernel_size)) #define shape of kernel
         return
@@ -212,12 +218,19 @@ class Proto2DBlock(nn.Block):
     def weight(self,val):
         self.weights = val
 
-    def setproj(self,flag):
-        self.proj = flag
+    def set_project_action_code(self,code):
+        if self.ctx is None:
+            print 'run forward before projection'
+            return
+        self.project_action = nd.ones((1,),ctx=self.ctx) * code
+        return
 
     def forward(self,x, *args):
         ctx = x.context
-        y = mx.nd.Custom(x,self.proj, self.weights.data(ctx), channels=self.channels, kernelSize=self.kernelSize, op_type="proto2d")
+        if self.ctx is None:
+            self.ctx = ctx
+            self.project_action = nd.ones((1,),ctx=ctx) * (-1)
+        y = mx.nd.Custom(x,self.weights.data(ctx), self.project_action, channels=self.channels, kernelSize=self.kernelSize, op_type="proto2d")
         return y
 
 
