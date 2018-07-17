@@ -3,6 +3,7 @@ from mxnet import gluon
 from mxnet.gluon import nn
 from mxnet import ndarray as nd
 import cPickle
+import numpy as np
 
 def im2col(img,ks):
     ctx = img.context
@@ -101,10 +102,15 @@ class Proto2D(mx.operator.CustomOp):
         inChNum, height, width = in_data.shape
         _, ks, _ = rot_weight.shape
         dataMat = nd.zeros((width * height, inChNum, ks * ks), ctx=ctx )
-        for y in range(height):
-            for x in range(width):
-                val = nd.tile( nd.reshape(in_data[:, y, x],(inChNum, 1, 1)), (1, ks, ks) )
-                dataMat[y * width + x, :, ] = nd.reshape(val, (inChNum, ks * ks ))
+        if 0:
+            for y in range(height):
+                for x in range(width):
+                    val = nd.tile( nd.reshape(in_data[:, y, x],(inChNum, 1, 1)), (1, ks, ks) )
+                    dataMat[y * width + x, :, ] = nd.reshape(val, (inChNum, ks * ks ))
+        else:
+            dataMat0 = nd.transpose( nd.reshape(in_data,(inChNum,-1)),(1,0))
+            dataMat1 = nd.expand_dims(dataMat0,axis=-1)
+            dataMat = nd.tile(dataMat1,(1,1,ks * ks))
         weightMat = nd.tile( nd.reshape(rot_weight,  (1, inChNum, ks*ks)), (width*height, 1, 1) )
         gradMat = nd.zeros((width * height, inChNum, ks * ks),ctx=ctx)
         for y in range(height):
@@ -196,7 +202,7 @@ class Proto2DProp(mx.operator.CustomOpProp):
         return (data_shape,weight_shape),(output_shape,),(aux_shape,)
     def infer_type(self, in_type):
         dtype = in_type[0]
-        return (dtype,dtype),(dtype,),(dtype,)
+        return (dtype,dtype),(dtype,),(np.int32,)
     def create_operator(self, ctx, in_shapes, in_dtypes):
         return Proto2D(self.channels,self.kernelSize)
 
@@ -222,14 +228,14 @@ class Proto2DBlock(nn.Block):
         if self.ctx is None:
             print 'run forward before projection'
             return
-        self.project_action = nd.ones((1,),ctx=self.ctx) * code
+        self.project_action = nd.ones((1,),ctx=self.ctx,dtype=np.int32) * code
         return
 
     def forward(self,x, *args):
         ctx = x.context
         if self.ctx is None:
             self.ctx = ctx
-            self.project_action = nd.ones((1,),ctx=ctx) * (-1)
+            self.project_action = nd.ones((1,),ctx=ctx,dtype=np.int32) * (-1)
         y = mx.nd.Custom(x,self.weights.data(ctx), self.project_action, channels=self.channels, kernelSize=self.kernelSize, op_type="proto2d")
         return y
 

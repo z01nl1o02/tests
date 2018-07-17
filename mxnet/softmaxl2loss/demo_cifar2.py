@@ -238,7 +238,7 @@ for epoch in range(200):
         trainer.step(batchSize)
         train_loss.update(loss)
         if round % 5 == 0:
-            print 'round {} {}'.format(round,train_loss.get())
+            print 'round {} {} {}'.format((time() - t0)/60.0,round,train_loss.get())
             visualloss.update_train(round,train_loss.get()[1])
             visualloss.show()
 
