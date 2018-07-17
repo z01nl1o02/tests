@@ -9,7 +9,7 @@ from symbol.proto2d import Proto2DBlock
 root='c:/dataset/cifar/split/'
 outdir = 'output/'
 #round number
-pretrain = -1
+pretrain = 500
 
 lr0 = 0.1
 wd = 0.005
@@ -31,7 +31,7 @@ trainIter = mx.image.ImageIter(batchSize,(channelNum,imgSize, imgSize),label_wid
                                shuffle=True,aug_list=trainAugList)
 
 testAugList = mx.image.CreateAugmenter((channelNum,imgSize, imgSize),rand_crop=False,mean=True,std=True)
-testIter = mx.image.ImageIter(3,(channelNum,imgSize, imgSize),label_width=1,
+testIter = mx.image.ImageIter(batchSize,(channelNum,imgSize, imgSize),label_width=1,
                                path_imglist='test.lst',path_root=os.path.join(root,'test'),
                                shuffle=False,aug_list=testAugList)
 
@@ -93,16 +93,19 @@ class CIFARNET(nn.Block):
         for fc in self.fcs:
             out = fc(out)
         return out
+    def origin_images(self,X):
+        self.convs[-1].set_origin_image_batch(X)
+        return
     def project(self,action): #get filter of one layer
         if action == 'start':
             print 'start project'
-            self.convs[-1].set_project_action_code( mx.ndarray.ones(1,ctx=ctx) * action_start_projection)
+            self.convs[-1].set_project_action_code( mx.ndarray.ones(1,ctx=ctx,dtype=np.int32) * action_start_projection)
         elif action == 'set':
             print 'set project'
-            self.convs[-1].set_project_action_code(mx.ndarray.ones(1,ctx=ctx) * action_end_projection)
+            self.convs[-1].set_project_action_code(mx.ndarray.ones(1,ctx=ctx,dtype=np.int32) * action_end_projection)
         elif action == 'end':
             print 'end project'
-            self.convs[-1].set_project_action_code(mx.ndarray.ones(1,ctx=ctx) * action_null)
+            self.convs[-1].set_project_action_code(mx.ndarray.ones(1,ctx=ctx,dtype=np.int32) * action_null)
         else:
             print 'unk {}'.format(action)
         return
@@ -198,6 +201,7 @@ def do_project(dataIter,net):
     net.project('start')
     for batch in dataIter:
         X, Y = batch.data[0].as_in_context(ctx), batch.label[0].as_in_context(ctx)
+        net.origin_images(X)
         predY = net.forward(X)
         predY.wait_to_read()
     net.project('set')
@@ -210,6 +214,7 @@ def do_project(dataIter,net):
         predY = net.forward(X)
         predY.wait_to_read()
         break #call forward()
+    net.origin_images(None)
     return net
 
 from time import time
@@ -224,7 +229,6 @@ round = 0
 for epoch in range(200):
     trainIter.reset()
 
-    #do_project(trainIter,net)
 
     for batchidx, batch in enumerate(trainIter):
         round += 1
@@ -237,8 +241,9 @@ for epoch in range(200):
         loss.backward()
         trainer.step(batchSize)
         train_loss.update(loss)
+        do_project(trainIter,net)
         if round % 5 == 0:
-            print 'round {} {} {}'.format((time() - t0)/60.0,round,train_loss.get())
+            print 'round {} {:.2f} {}'.format(round,(time() - t0)/60.0,train_loss.get())
             visualloss.update_train(round,train_loss.get()[1])
             visualloss.show()
 
@@ -252,7 +257,7 @@ for epoch in range(200):
         hr.update(Y,predY)
     visualloss.update_test(round,test_loss.get()[1])
     visualloss.show()
-    print 'epoch {} lr {:.5f} {:.2f} min {} {} {}'.format( epoch,trainer.learning_rate, (time()-t0)/60.0,
+    print 'epoch {} lr {:.3f} {:.2f} min {} {} {}'.format( epoch,trainer.learning_rate, (time()-t0)/60.0,
               train_loss.get(),test_loss.get(), hr)
     #net.export(os.path.join(outdir,"cifar"),epoch=round)
     net.save_params(os.path.join(outdir,'cifar-%.4d.params'%round))

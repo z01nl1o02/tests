@@ -7,8 +7,9 @@ import numpy as np
 
 def im2col(img,ks):
     ctx = img.context
-    chNum, height, width=img.shape
-    imgPadding = nd.pad(nd.expand_dims(img,axis=0),mode='constant',pad_width=(0,0,0,0,0,2,0,2),constant_value=0)[0]
+    chNum, height, width = img.shape
+    #imgPadding = nd.pad(nd.expand_dims(img,axis=0),mode='constant',pad_width=(0,0,0,0,0,2,0,2),constant_value=0)[0]
+    imgPadding = nd.pad(nd.expand_dims(img, axis=0), mode='edge', pad_width=(0,0,0,0,0,2,0,2))[0]
     patchNum = width*height
     output = nd.zeros((patchNum, ks*ks*chNum), ctx=ctx)
     for y in range(imgPadding.shape[1] - 2):
@@ -18,7 +19,7 @@ def im2col(img,ks):
 
 
 class Proto2D(mx.operator.CustomOp):
-    def __init__(self, channels,kernelSize):
+    def __init__(self, channels, kernelSize):
         self.kernelSize=kernelSize
         assert kernelSize==3
         self.strides = 1
@@ -26,6 +27,7 @@ class Proto2D(mx.operator.CustomOp):
         self.verbose = False
         self.minDist = None
         self.projWeight = None
+        self.prototypes = None
         return
 
     
@@ -33,8 +35,8 @@ class Proto2D(mx.operator.CustomOp):
         ctx = in_data[0].context
         data = in_data[0]
         proj = aux[0]
+        origin_images = aux[1]
         weight = in_data[1]
-
 
         if self.verbose:
             print 'forward input start'
@@ -68,25 +70,52 @@ class Proto2D(mx.operator.CustomOp):
         if self.minDist is None:
             self.minDist = nd.zeros(outChNum,ctx = ctx) - 99999.0
             self.projWeight = nd.zeros(weight.shape, ctx=ctx)
+            self.prototypes = nd.zeros((outChNum,3,kernelSize*4, kernelSize*4), ctx=ctx)
 
         if proj[0] == 1: #start
+            ratio = origin_images.shape[2] // width
+            #print 'ratio = {} batch size = {}'.format(ratio,batchSize)
             dataPading = nd.pad(data,mode='constant',pad_width=[0,0,0,0,0,2,0,2],constant_value=0)
             for batchidx in range(batchSize):
                 dataCur =  dataPading[batchidx]
                 for outchidx in range(outChNum):
-                    locx,locy = 0, 0
-                    for y in range(height):
-                        for x in range(width):
-                            if output[batchidx,outchidx][y,x] > output[batchidx,outchidx][locy,locx]:
-                                locy,locx = y, x
+                    if 0:
+                        locx,locy = 0, 0
+                        for y in range(height):
+                            for x in range(width):
+                                if output[batchidx,outchidx][y,x] > output[batchidx,outchidx][locy,locx]:
+                                    locy,locx = y, x
+                    else:
+                        tmp = nd.reshape( output[batchidx,outchidx], (1,-1) )
+                        pos = nd.argmax(tmp, axis=1).asnumpy()[0]
+                        pos = np.int32(pos)
+                        locy = pos//output[batchidx,outchidx].shape[1]
+                        locx = pos - locy * output[batchidx,outchidx].shape[1]
+                        print output[batchidx,outchidx].asnumpy()
+                        print 'locx locy max = {} {} {}'.format(locx,locy,output[batchidx,outchidx][locy,locx])
                     if output[batchidx,outchidx][locy,locx] >  self.minDist[outchidx]:
                         self.projWeight[outchidx] = dataPading[batchidx][:,locy:locy+kernelSize, locx:locx+kernelSize]
+                        x0,y0 = locx*ratio,locy * ratio
+                        x1,y1 = (locx+kernelSize)*ratio, (locy+kernelSize)*ratio
+                        if x1 >= origin_images.shape[2]:
+                            x1 = origin_images.shape[2]
+                            x0 = x1 - ratio * kernelSize
+                        if y1 >= origin_images.shape[3]:
+                            y1 = origin_images.shape[3]
+                            y0 = y1 - ratio * kernelSize
+                        #print 'x0,x1,y0,y1 = {},{},{},{}'.format(x0,x1,y0,y1)
+                        self.prototypes[outchidx] = origin_images[batchidx][:,y0:y1,x0:x1]
+                        #with open('test.pkl','wb') as f:
+                         #   cPickle.dump(origin_images[0][:,2:-2,2:-2],f)
         elif proj[0] == 2: #end
            for outchidx in range(outChNum):
                if self.minDist[outchidx] < -99:
                    continue
                weight[outchidx] = self.projWeight[outchidx]
-           self.assign(in_data[2],"write",weight)
+           self.assign(in_data[1],"write",weight)
+           with open('proto.pkl','wb') as f:
+               cPickle.dump(self.prototypes,f)
+               print 'proto.pkl updated'
         self.assign(out_data[0],req[0],output)
 
         return
@@ -182,38 +211,42 @@ class Proto2D(mx.operator.CustomOp):
         self.assign(in_grad[1],req[1],dw)
         return
 
+origin_image_size = 28
+
 @mx.operator.register("proto2d")
 class Proto2DProp(mx.operator.CustomOpProp):
-    def __init__(self,channels,kernelSize):
+    def __init__(self,channels,kernelSize): #parameters during initialization
         super(Proto2DProp,self).__init__(need_top_grad=True)
         self.kernelSize = int(kernelSize)
         self.channels = int(channels)
-    def list_arguments(self):
+    def list_arguments(self): #parameter during forward()
         return ["input","weight"]
-    def list_outputs(self):
+    def list_outputs(self): #output of forward
         return ['output']
-    def list_auxiliary_states(self):
-        return ['project_action']
+    def list_auxiliary_states(self): #aux parameter during forward()
+        return ['project_action','origin_image_shape']
     def infer_shape(self, in_shape):
         data_shape = in_shape[0]
         weight_shape = in_shape[1]
         output_shape = (data_shape[0],weight_shape[0],data_shape[2],data_shape[3]) #
-        aux_shape = (1,)
-        return (data_shape,weight_shape),(output_shape,),(aux_shape,)
+        project_action_shape = (1,)
+        origin_image_shape = (data_shape[0],3, origin_image_size , origin_image_size) #origin image shape
+        return (data_shape,weight_shape),(output_shape,),(project_action_shape,origin_image_shape,)
     def infer_type(self, in_type):
         dtype = in_type[0]
-        return (dtype,dtype),(dtype,),(np.int32,)
+        return (dtype,dtype),(dtype,),(np.int32,dtype)
     def create_operator(self, ctx, in_shapes, in_dtypes):
         return Proto2D(self.channels,self.kernelSize)
 
 class Proto2DBlock(nn.Block):
-    def __init__(self,in_channels, out_channels, kernel_size=3, **kwargs):
+    def __init__(self,in_channels, out_channels,kernel_size=3, **kwargs):
         super(Proto2DBlock,self).__init__(**kwargs)
         #configure parameters
         self.kernelSize = kernel_size
         self.channels = out_channels
         self.project_action = None
         self.ctx = None
+        self.origin_image = None
         #learnable parameters
         self.weights = self.params.get("weight",shape = (out_channels, in_channels, kernel_size, kernel_size)) #define shape of kernel
         return
@@ -226,17 +259,24 @@ class Proto2DBlock(nn.Block):
 
     def set_project_action_code(self,code):
         if self.ctx is None:
-            print 'run forward before projection'
+            print 'error:run forward before projection'
             return
         self.project_action = nd.ones((1,),ctx=self.ctx,dtype=np.int32) * code
         return
 
+    def set_origin_image_batch(self,origin_images):
+        if origin_images is None:
+            self.origin_image = nd.zeros((10,3,origin_image_size,origin_image_size),ctx=self.ctx)
+            return
+        self.origin_image = origin_images
+        return
     def forward(self,x, *args):
         ctx = x.context
         if self.ctx is None:
             self.ctx = ctx
             self.project_action = nd.ones((1,),ctx=ctx,dtype=np.int32) * (-1)
-        y = mx.nd.Custom(x,self.weights.data(ctx), self.project_action, channels=self.channels, kernelSize=self.kernelSize, op_type="proto2d")
+            self.origin_image = nd.zeros((10,3,origin_image_size,origin_image_size),ctx=ctx)
+        y = mx.nd.Custom(x,self.weights.data(ctx), self.project_action, self.origin_image,  channels=self.channels, kernelSize=self.kernelSize, op_type="proto2d")
         return y
 
 
