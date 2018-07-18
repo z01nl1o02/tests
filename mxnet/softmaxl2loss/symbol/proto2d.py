@@ -9,12 +9,13 @@ def im2col(img,ks):
     ctx = img.context
     chNum, height, width = img.shape
     #imgPadding = nd.pad(nd.expand_dims(img,axis=0),mode='constant',pad_width=(0,0,0,0,0,2,0,2),constant_value=0)[0]
-    imgPadding = nd.pad(nd.expand_dims(img, axis=0), mode='edge', pad_width=(0,0,0,0,0,2,0,2))[0]
-    patchNum = width*height
+    #imgPadding = nd.pad(nd.expand_dims(img, axis=0), mode='edge', pad_width=(0,0,0,0,0,2,0,2))[0]
+    imgPadding = img
+    patchNum = (width-2)*(height-2)
     output = nd.zeros((patchNum, ks*ks*chNum), ctx=ctx)
     for y in range(imgPadding.shape[1] - 2):
         for x in range(imgPadding.shape[2] - 2):
-            output[y*width + x] = imgPadding[:, y:y+ks, x:x+ks].reshape(ks*ks*chNum)
+            output[y*(width-2) + x] = imgPadding[:, y:y+ks, x:x+ks].reshape(ks*ks*chNum)
     return output
 
 
@@ -47,20 +48,20 @@ class Proto2D(mx.operator.CustomOp):
         batchSize, inChNum, height, width = data.shape
         outChNum, inChNum, kernelSize, _ = weight.shape
 
-        weightMat = nd.zeros((outChNum,width*height,inChNum * kernelSize * kernelSize),ctx=ctx)
+        weightMat = nd.zeros((outChNum,(width-2)*(height-2),inChNum * kernelSize * kernelSize),ctx=ctx)
         for outchidx in range(outChNum):
             w = nd.reshape(weight[outchidx],(1,-1))
-            w = nd.tile( w, (width * height, 1) )
+            w = nd.tile( w, ((width-2) * (height-2), 1) )
             weightMat[outchidx] = w
 
-        output = nd.zeros((batchSize, outChNum, height, width), ctx = ctx)
+        output = nd.zeros((batchSize, outChNum, height-2, width-2), ctx = ctx)
         for batchidx in range(batchSize):
            dataCur=data[batchidx]
            dataCur=im2col(dataCur,kernelSize)
            for outchidx in range(outChNum):
                weightCur= weightMat[outchidx]
                df = ((dataCur - weightCur)**2).sum(axis=1) + 0.00001
-               output[batchidx,outchidx] = nd.reshape(-1*nd.log(df),(height,width))
+               output[batchidx,outchidx] = nd.reshape(-1*nd.log(df),(height-2,width-2))
         
         if self.verbose:
             print 'forward output start'
@@ -75,7 +76,8 @@ class Proto2D(mx.operator.CustomOp):
         if proj[0] == 1: #start
             ratio = origin_images.shape[2] // width
             #print 'ratio = {} batch size = {}'.format(ratio,batchSize)
-            dataPading = nd.pad(data,mode='constant',pad_width=[0,0,0,0,0,2,0,2],constant_value=0)
+            #dataPading = nd.pad(data,mode='constant',pad_width=[0,0,0,0,0,2,0,2],constant_value=0)
+            dataPading = data
             for batchidx in range(batchSize):
                 dataCur =  dataPading[batchidx]
                 for outchidx in range(outChNum):
@@ -91,18 +93,12 @@ class Proto2D(mx.operator.CustomOp):
                         pos = np.int32(pos)
                         locy = pos//output[batchidx,outchidx].shape[1]
                         locx = pos - locy * output[batchidx,outchidx].shape[1]
-                        print output[batchidx,outchidx].asnumpy()
-                        print 'locx locy max = {} {} {}'.format(locx,locy,output[batchidx,outchidx][locy,locx])
+                        #print output[batchidx,outchidx].asnumpy()
+                        #print 'locx locy max = {} {} {}'.format(locx,locy,output[batchidx,outchidx][locy,locx])
                     if output[batchidx,outchidx][locy,locx] >  self.minDist[outchidx]:
                         self.projWeight[outchidx] = dataPading[batchidx][:,locy:locy+kernelSize, locx:locx+kernelSize]
                         x0,y0 = locx*ratio,locy * ratio
                         x1,y1 = (locx+kernelSize)*ratio, (locy+kernelSize)*ratio
-                        if x1 >= origin_images.shape[2]:
-                            x1 = origin_images.shape[2]
-                            x0 = x1 - ratio * kernelSize
-                        if y1 >= origin_images.shape[3]:
-                            y1 = origin_images.shape[3]
-                            y0 = y1 - ratio * kernelSize
                         #print 'x0,x1,y0,y1 = {},{},{},{}'.format(x0,x1,y0,y1)
                         self.prototypes[outchidx] = origin_images[batchidx][:,y0:y1,x0:x1]
                         #with open('test.pkl','wb') as f:
@@ -159,19 +155,20 @@ class Proto2D(mx.operator.CustomOp):
         for y in range(ks):
             for x in range(ks):
                 weightCur = nd.tile( nd.reshape(weight[:,y,x],(inChNum,1,1)), (1,height,width) )
-                val = 2 * norm_grad[:, 2:-2, 2:-2] * ( dataPad[:,y:y+height,x:x+width] - weightCur  )
+                val = 2 * norm_grad[:, 2:, 2:] * ( dataPad[:,y:y+height,x:x+width] - weightCur  )
                 output[:,y,x] = nd.reshape(val, (inChNum, width*height)).sum(axis=1)
         return output
     def get_R2(self,dataOut,l2): #second part of cost function
         batchSize, chNum, height, width = dataOut.shape
-        val = nd.exp( (-1) * (nd.reshape(dataOut,(batchSize,-1)).max(axis=1) ) ).mean()
+        #val = nd.exp( (-1) * (nd.reshape(dataOut,(batchSize,-1)).max(axis=1) ) ).mean()
         return val * l2
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
         dataIn = in_data[0]
         dataOut = out_data[0]
         weight = in_data[1]
-        lambdaR2 = 0.00005
-        costR2 = self.get_R2(dataOut,lambdaR2)
+        lambdaR2 = 0.00000
+        #costR2 = self.get_R2(dataOut,lambdaR2) cause bp failed to maximum error
+        costR2 = 0
         grad = out_grad[0] + costR2
         if self.verbose:
             print 'grad max = {} R2 = {}'.format( out_grad[0].max(), costR2 )
@@ -207,6 +204,7 @@ class Proto2D(mx.operator.CustomOp):
             print 'grad output: {} {} {}'.format(dz.min(), dz.max(),dz.mean())
             print 'dw output: {} {} {}'.format(dw.min(), dw.max(), dw.mean())
             print 'backward output end'
+
         self.assign(in_grad[0],req[0],dz)
         self.assign(in_grad[1],req[1],dw)
         return
@@ -228,7 +226,7 @@ class Proto2DProp(mx.operator.CustomOpProp):
     def infer_shape(self, in_shape):
         data_shape = in_shape[0]
         weight_shape = in_shape[1]
-        output_shape = (data_shape[0],weight_shape[0],data_shape[2],data_shape[3]) #
+        output_shape = (data_shape[0],weight_shape[0],data_shape[2]-2,data_shape[3]-2) # shrink is necessary because padding will cause last value is always maximum
         project_action_shape = (1,)
         origin_image_shape = (data_shape[0],3, origin_image_size , origin_image_size) #origin image shape
         return (data_shape,weight_shape),(output_shape,),(project_action_shape,origin_image_shape,)
