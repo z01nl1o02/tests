@@ -114,6 +114,8 @@ class Proto2D(mx.operator.CustomOp):
                    continue
                weight[outchidx] = projWeight[outchidx]
            self.assign(in_data[1],"write",weight)
+           print 'dist min = {} max = {}'.format(minDist.asnumpy().min(), minDist.asnumpy().max())
+           in_data[1].wait_to_read()
            with open('proto.pkl','wb') as f:
                cPickle.dump(prototypes,f)
                print 'proto.pkl updated'
@@ -214,14 +216,14 @@ class Proto2D(mx.operator.CustomOp):
         self.assign(in_grad[1],req[1],dw)
         return
 
-origin_image_size = 28
 
 @mx.operator.register("proto2d")
 class Proto2DProp(mx.operator.CustomOpProp):
-    def __init__(self,channels,kernelSize): #parameters during initialization
+    def __init__(self,channels,kernelSize,origin_image_size): #parameters during initialization
         super(Proto2DProp,self).__init__(need_top_grad=True)
         self.kernelSize = int(kernelSize)
         self.channels = int(channels)
+        self.origin_image_size = int(origin_image_size)
     def list_arguments(self): #parameter during forward()
         return ["input","weight"]
     def list_outputs(self): #output of forward
@@ -233,10 +235,11 @@ class Proto2DProp(mx.operator.CustomOpProp):
         weight_shape = in_shape[1]
         output_shape = (data_shape[0],weight_shape[0],data_shape[2]-2,data_shape[3]-2) # shrink is necessary because padding will cause last value is always maximum
         project_action_shape = (1,)
-        origin_image_shape = (data_shape[0],3, origin_image_size , origin_image_size) #origin image shape
+        origin_image_shape = (data_shape[0],3, self.origin_image_size , self.origin_image_size) #origin image shape
         min_dist_ch_shape = (weight_shape[0],)
         project_w_shape = weight_shape
-        prototypes_shape = (weight_shape[0],3,weight_shape[2] * 4, weight_shape[3] * 4)
+        scale = np.int32(self.origin_image_size // data_shape[2])
+        prototypes_shape = (weight_shape[0],3,weight_shape[2] * scale, weight_shape[3] * scale)
         return (data_shape,weight_shape),(output_shape,),(project_action_shape,origin_image_shape,min_dist_ch_shape,project_w_shape,prototypes_shape)
     def infer_type(self, in_type):
         dtype = in_type[0]
@@ -245,12 +248,17 @@ class Proto2DProp(mx.operator.CustomOpProp):
         return Proto2D(self.channels,self.kernelSize)
 
 class Proto2DBlock(nn.Block):
-    def __init__(self,in_channels, out_channels,kernel_size=3, **kwargs):
+    def __init__(self,in_channels, out_channels,
+                 origin_image_size, #size of the network input
+                 batchSize,
+                 kernel_size=3, **kwargs):
         super(Proto2DBlock,self).__init__(**kwargs)
         #configure parameters
         self.kernelSize = kernel_size
         self.inChNum = in_channels
-        self.channels = out_channels
+        self.outChNum = out_channels #outChNum
+        self.batchSize = batchSize
+        self.origin_image_size = origin_image_size
         self.project_action = None
         self.ctx = None
         self.origin_image = None
@@ -273,12 +281,19 @@ class Proto2DBlock(nn.Block):
         if self.ctx is None:
             print 'error:run forward before projection'
             return
+        if code == 1:
+            self.reset_project()
         self.project_action = nd.ones((1,),ctx=self.ctx,dtype=np.int32) * code
+        return
+    def reset_project(self):
+        self.minDist = nd.zeros(self.outChNum,ctx = self.ctx) - 99999.0
+        self.projWeight = nd.zeros((self.outChNum,self.inChNum,self.kernelSize,self.kernelSize), ctx=self.ctx)
+        self.prototypes = nd.zeros((self.outChNum,3,self.kernelSize*4, self.kernelSize*4), ctx=self.ctx)
         return
 
     def set_origin_image_batch(self,origin_images):
         if origin_images is None:
-            self.origin_image = nd.zeros((10,3,origin_image_size,origin_image_size),ctx=self.ctx)
+            self.origin_image = nd.zeros((self.batchSize,3,self.origin_image_size,self.origin_image_size),ctx=self.ctx)
             return
         self.origin_image = origin_images
         return
@@ -287,18 +302,12 @@ class Proto2DBlock(nn.Block):
         if self.ctx is None:
             self.ctx = ctx
             self.project_action = nd.ones((1,),ctx=ctx,dtype=np.int32) * (-1)
-            self.origin_image = nd.zeros((10,3,origin_image_size,origin_image_size),ctx=ctx)
-
-            self.minDist = nd.zeros(self.channels,ctx = ctx) - 99999.0
-            self.projWeight = nd.zeros((self.channels,self.inChNum,self.kernelSize,self.kernelSize), ctx=ctx)
-            self.prototypes = nd.zeros((self.channels,3,self.kernelSize*4, self.kernelSize*4), ctx=ctx)
-
-
-       # print 'before {}'.format(self.minDist.asnumpy().mean())
+            self.origin_image = nd.zeros((self.batchSize,3,self.origin_image_size,self.origin_image_size),ctx=ctx)
+            self.reset_project()
         y = mx.nd.Custom(x,self.weights.data(ctx), self.project_action, self.origin_image,
                          self.minDist, self.projWeight,self.prototypes,
-                         channels=self.channels, kernelSize=self.kernelSize, op_type="proto2d")
-      #  print 'after {}'.format(self.minDist.asnumpy().mean())
+                         channels=self.outChNum, kernelSize=self.kernelSize, origin_image_size = self.origin_image_size,
+                         op_type="proto2d")
         return y
 
 

@@ -9,7 +9,7 @@ from symbol.proto2d import Proto2DBlock
 root='c:/dataset/cifar/split/'
 outdir = 'output/'
 #round number
-pretrain = -200
+pretrain = -100
 
 lr0 = 0.1
 wd = 0.005
@@ -75,7 +75,7 @@ class CIFARNET(nn.Block):
             self.convs.add( CIFARCONV(ch=32) )
             self.convs.add( CIFARCONV(ch=64,downsample=True) )
             self.convs.add( CIFARCONV(ch=80,downsample=True) )
-            self.convs.add( Proto2DBlock(80,64) )
+            self.convs.add( Proto2DBlock(80,64, imgSize, batchSize) )
             self.fcs.add( nn.GlobalMaxPool2D() )
             self.fcs.add(nn.Dense(classNum))
         return
@@ -222,7 +222,7 @@ t0 = time()
 
 visualloss = VISUAL_LOSS()
 
-lr_steps = [200,500]
+lr_steps = [500,1500,3000,5000]
 
 
 round = 0
@@ -262,7 +262,7 @@ for epoch in range(200):
     #net.export(os.path.join(outdir,"cifar"),epoch=round)
     net.save_params(os.path.join(outdir,'cifar-%.4d.params'%round))
     # projection
-    if (1+epoch) % 2 == 0:
+    if (1+epoch) % 1 == 0:
         net = do_project(trainIter,net)
 
 
