@@ -9,7 +9,7 @@ from symbol.proto2d import Proto2DBlock
 root='c:/dataset/cifar/split/'
 outdir = 'output/'
 #round number
-pretrain = 500
+pretrain = -200
 
 lr0 = 0.1
 wd = 0.005
@@ -222,7 +222,7 @@ t0 = time()
 
 visualloss = VISUAL_LOSS()
 
-lr_steps = [20000,40000]
+lr_steps = [200,500]
 
 
 round = 0
@@ -241,7 +241,7 @@ for epoch in range(200):
         loss.backward()
         trainer.step(batchSize)
         train_loss.update(loss)
-        do_project(trainIter,net)
+        #do_project(trainIter,net)
         if round % 5 == 0:
             print 'round {} {:.2f} {}'.format(round,(time() - t0)/60.0,train_loss.get())
             visualloss.update_train(round,train_loss.get()[1])
@@ -262,7 +262,7 @@ for epoch in range(200):
     #net.export(os.path.join(outdir,"cifar"),epoch=round)
     net.save_params(os.path.join(outdir,'cifar-%.4d.params'%round))
     # projection
-    if (1+epoch) % 5 == 0:
+    if (1+epoch) % 2 == 0:
         net = do_project(trainIter,net)
 
 
