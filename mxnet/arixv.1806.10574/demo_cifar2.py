@@ -262,7 +262,7 @@ for epoch in range(200):
     #net.export(os.path.join(outdir,"cifar"),epoch=round)
     net.save_params(os.path.join(outdir,'cifar-%.4d.params'%round))
     # projection
-    if (1+epoch) % 1 == 0:
+    if (1+epoch) % 100 == 0:
         net = do_project(trainIter,net)
 
 

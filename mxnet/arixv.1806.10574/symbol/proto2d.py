@@ -165,18 +165,21 @@ class Proto2D(mx.operator.CustomOp):
                 val = 2 * norm_grad[:, 2:, 2:] * ( dataPad[:,y:y+height,x:x+width] - weightCur  )
                 output[:,y,x] = nd.reshape(val, (inChNum, width*height)).sum(axis=1)
         return output
-    def get_R2(self,dataOut,l2): #second part of cost function
+    def add_r2_to_grad(self,dataOut,grad, C = 1.0): #second part of cost function
         batchSize, chNum, height, width = dataOut.shape
-        #val = nd.exp( (-1) * (nd.reshape(dataOut,(batchSize,-1)).max(axis=1) ) ).mean()
-        return val * l2
+        val = nd.exp( (-1) * (nd.reshape(dataOut,(batchSize,-1)).max(axis=1) ) ).mean()
+        for batchidx in range(batchSize):
+            idx = nd.argmax( nd.reshape(dataOut[batchidx],(1,-1)), axis=1)
+            #print idx
+            tmp = nd.reshape(grad[batchidx],(1,-1))
+            tmp[0,idx] += C / batchSize
+            grad[batchidx] = nd.reshape( tmp, grad[batchidx].shape)
+        return grad
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
         dataIn = in_data[0]
         dataOut = out_data[0]
         weight = in_data[1]
-        lambdaR2 = 0.00000
-        #costR2 = self.get_R2(dataOut,lambdaR2) cause bp failed to maximum error
-        costR2 = 0
-        grad = out_grad[0] + costR2
+        grad = self.add_r2_to_grad(dataOut,out_grad[0])
         if self.verbose:
             print 'grad max = {} R2 = {}'.format( out_grad[0].max(), costR2 )
             print 'backward input start'
