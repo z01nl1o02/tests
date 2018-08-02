@@ -4,18 +4,22 @@ from mxnet.gluon import nn
 from mxnet import ndarray as nd
 import cPickle
 import numpy as np
+from func import patch2col,patch2col_2
 
 def im2col(img,ks):
-    ctx = img.context
-    chNum, height, width = img.shape
-    #imgPadding = nd.pad(nd.expand_dims(img,axis=0),mode='constant',pad_width=(0,0,0,0,0,2,0,2),constant_value=0)[0]
-    #imgPadding = nd.pad(nd.expand_dims(img, axis=0), mode='edge', pad_width=(0,0,0,0,0,2,0,2))[0]
-    imgPadding = img
-    patchNum = (width-2)*(height-2)
-    output = nd.zeros((patchNum, ks*ks*chNum), ctx=ctx)
-    for y in range(imgPadding.shape[1] - 2):
-        for x in range(imgPadding.shape[2] - 2):
-            output[y*(width-2) + x] = imgPadding[:, y:y+ks, x:x+ks].reshape(ks*ks*chNum)
+    if 1:
+        ctx = img.context
+        chNum, height, width = img.shape
+        #imgPadding = nd.pad(nd.expand_dims(img,axis=0),mode='constant',pad_width=(0,0,0,0,0,2,0,2),constant_value=0)[0]
+        #imgPadding = nd.pad(nd.expand_dims(img, axis=0), mode='edge', pad_width=(0,0,0,0,0,2,0,2))[0]
+        imgPadding = img
+        patchNum = (width-2)*(height-2)
+        output = nd.zeros((patchNum, ks*ks*chNum), ctx=ctx)
+        for y in range(imgPadding.shape[1] - 2):
+            for x in range(imgPadding.shape[2] - 2):
+                output[y*(width-2) + x] = imgPadding[:, y:y+ks, x:x+ks].reshape(ks*ks*chNum)
+    else:       
+        output = patch2col(img)
     return output
 
 
@@ -144,11 +148,14 @@ class Proto2D(mx.operator.CustomOp):
             dataMat1 = nd.expand_dims(dataMat0,axis=-1)
             dataMat = nd.tile(dataMat1,(1,1,ks * ks))
         weightMat = nd.tile( nd.reshape(rot_weight,  (1, inChNum, ks*ks)), (width*height, 1, 1) )
-        gradMat = nd.zeros((width * height, inChNum, ks * ks),ctx=ctx)
-        for y in range(height):
-            for x in range(width):
-                gx, gy = x + 2, y + 2
-                gradMat[y * width + x,:,] =  nd.reshape(norm_grad[:,gy-2:gy+1, gx-2:gx+1],(inChNum,ks*ks))
+        if 0:
+            gradMat = nd.zeros((width * height, inChNum, ks * ks),ctx=ctx)
+            for y in range(height):
+                for x in range(width):
+                    gx, gy = x + 2, y + 2
+                    gradMat[y * width + x,:,] =  nd.reshape(norm_grad[:,gy-2:gy+1, gx-2:gx+1],(inChNum,ks*ks))
+        else:
+            gradMat = patch2col_2(norm_grad)
         output = (gradMat * (dataMat - weightMat)).sum(axis = 2)
         output = nd.reshape(output, (height, width, inChNum))
         output = nd.transpose(output, (2, 0, 1))
