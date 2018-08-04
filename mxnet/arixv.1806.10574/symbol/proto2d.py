@@ -104,7 +104,7 @@ class Proto2D(mx.operator.CustomOp):
                         projWeight[outchidx] = dataPading[batchidx][:,locy:locy+kernelSize, locx:locx+kernelSize]
                         x0,y0 = locx*ratio,locy * ratio
                         x1,y1 = (locx+kernelSize)*ratio, (locy+kernelSize)*ratio
-                        #print 'x0,x1,y0,y1 = {},{},{},{}'.format(x0,x1,y0,y1)
+                        #print 'ch,x0,x1,y0,y1,val = {},{},{},{},{},{}'.format(outchidx,x0,x1,y0,y1,minDist[outchidx].asnumpy()[0])
                         prototypes[outchidx] = origin_images[batchidx][:,y0:y1,x0:x1]
                         #self.prototypes[outchidx] = origin_images[batchidx][:,0:12,0:12]
                         #with open('proto.pkl','wb') as f:
@@ -118,7 +118,7 @@ class Proto2D(mx.operator.CustomOp):
                    continue
                weight[outchidx] = projWeight[outchidx]
            self.assign(in_data[1],"write",weight)
-           print 'dist min = {} max = {}'.format(minDist.asnumpy().min(), minDist.asnumpy().max())
+           #print 'dist min = {} max = {}'.format(minDist.asnumpy().min(), minDist.asnumpy().max())
            in_data[1].wait_to_read()
            with open('proto.pkl','wb') as f:
                cPickle.dump(prototypes,f)
@@ -306,7 +306,7 @@ class Proto2DBlock(nn.Block):
     def reset_project(self):
         self.minDist = nd.zeros(self.outChNum,ctx = self.ctx) - 99999.0
         self.projWeight = nd.zeros((self.outChNum,self.inChNum,self.kernelSize,self.kernelSize), ctx=self.ctx)
-        self.prototypes = nd.zeros((self.outChNum,3,self.kernelSize*4, self.kernelSize*4), ctx=self.ctx)
+        self.prototypes = nd.zeros((self.outChNum,3,self.kernelSize*4, self.kernelSize*4), ctx=self.ctx) #assume downsample scale = 4
         return
 
     def set_origin_image_batch(self,origin_images):
