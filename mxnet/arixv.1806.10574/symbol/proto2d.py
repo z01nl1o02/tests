@@ -172,7 +172,7 @@ class Proto2D(mx.operator.CustomOp):
                 val = 2 * norm_grad[:, 2:, 2:] * ( dataPad[:,y:y+height,x:x+width] - weightCur  )
                 output[:,y,x] = nd.reshape(val, (inChNum, width*height)).sum(axis=1)
         return output
-    def add_r2_to_grad(self,dataOut,grad, C = 1.0): #second part of cost function
+    def add_r2_to_grad(self,dataOut,grad, C = 1): #second part of cost function
         batchSize, chNum, height, width = dataOut.shape
         val = nd.exp( (-1) * (nd.reshape(dataOut,(batchSize,-1)).max(axis=1) ) ).mean()
         for batchidx in range(batchSize):
@@ -182,11 +182,19 @@ class Proto2D(mx.operator.CustomOp):
             tmp[0,idx] += C / batchSize
             grad[batchidx] = nd.reshape( tmp, grad[batchidx].shape)
         return grad
+    def show_max_dataout(self,dataOut_):
+        dataOut = dataOut_.as_in_context(mx.cpu()).asnumpy()
+        batchSize, chNum, height, width = dataOut.shape
+        maxV = 0
+        for batchidx in range(batchSize):
+            maxV += np.exp(-dataOut[batchidx].max())
+        print maxV / batchSize
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
         dataIn = in_data[0]
         dataOut = out_data[0]
         weight = in_data[1]
         grad = self.add_r2_to_grad(dataOut,out_grad[0])
+        #self.show_max_dataout(dataOut)  #to show result of R2
         if self.verbose:
             print 'grad max = {} R2 = {}'.format( out_grad[0].max(), costR2 )
             print 'backward input start'
