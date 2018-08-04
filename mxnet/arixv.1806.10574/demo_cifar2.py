@@ -222,7 +222,7 @@ t0 = time()
 
 visualloss = VISUAL_LOSS()
 
-lr_steps = [500,1500,3000,5000]
+lrch = mx.lr_scheduler.PolyScheduler(100000, base_lr=lr0,pwr=2)
 
 
 round = 0
@@ -232,8 +232,7 @@ for epoch in range(200):
 
     for batchidx, batch in enumerate(trainIter):
         round += 1
-        if round in set(lr_steps):
-            trainer.set_learning_rate(trainer.learning_rate * 0.1)
+        trainer.set_learning_rate(lrch(round))
         X,Y = batch.data[0].as_in_context(ctx), batch.label[0].as_in_context(ctx)
         with autograd.record():
             predY = net.forward(X)
