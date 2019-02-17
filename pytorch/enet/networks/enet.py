@@ -55,9 +55,9 @@ class ENET_BOTTLENECK(nn.Module):
             self.regular = nn.Dropout2d()
             self.b2 = nn.Sequential(
                 nn.MaxPool2d(kernel_size=2,stride=2,padding=0),
-                nn.Conv2d(in_channels=in_channels,out_channels=out_channels,kernel_size=1,stride=1,padding=0)
+                nn.Conv2d(in_channels=in_channels,out_channels=out_channels,kernel_size=1,stride=1,padding=0,bias=False)
             )
-            self.conv = nn.Conv2d(in_channels=out_channels,out_channels=out_channels,kernel_size=1,stride=1,padding=0)
+            self.conv = nn.Conv2d(in_channels=out_channels,out_channels=out_channels,kernel_size=1,stride=1,padding=0,bias=False)
             self.prelu = nn.PReLU()
         else:
             self.b1 = nn.Sequential(
@@ -140,5 +140,18 @@ if 0:
     scores = model(x)
     print(scores.size())  # you should see [64, 10]
 
+#https://github.com/szagoruyko/pytorchviz
+#pip install git+https://github.com/szagoruyko/pytorchviz
+if 0:
+    from graphviz import Digraph
+    from torchviz import make_dot
+    from torch.autograd import Variable
+
+    net = get_net(21)
+    net.cuda()
+    x = Variable(torch.rand(1, 3, 256, 256)).cuda()
+    h_x = net(x).cpu()
+    dot = make_dot(h_x, params=dict(net.named_parameters()))
+    dot.view("enet")
 
 
