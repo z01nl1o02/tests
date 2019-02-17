@@ -11,8 +11,8 @@ import torch.optim as optim
 
 device = torch.device("cuda:0")
 batch_size = 10
-num_epochs = 100
-base_lr = 0.001 #should be small for model with pretrained model
+num_epochs = 10000
+base_lr = 0.01 #should be small for model with pretrained model
 wd = 0.0005
 net_name = "enet"
 dataset_name = 'voc'
@@ -42,7 +42,7 @@ lr_sch = LinearScheduler(iter_per_epoch * num_epochs, min_lr=base_lr/1000, max_l
 
 
 
-class_weights = [10 for k in range(len(class_names))]
+class_weights = [1 for k in range(len(class_names))]
 class_weights[0] = 0.1
 class_weights = torch.from_numpy( np.asarray(class_weights,dtype=np.float32) )
 train_seg(net,optimizer, train_iter, test_iter,device,lr_sch,class_weights=class_weights,epochs=num_epochs)
