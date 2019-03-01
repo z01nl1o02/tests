@@ -8,7 +8,7 @@ import os
 import sys
 import glob,cv2
 from PIL import Image as PILImage
-
+import numpy as np
 from utils import mat2png_hariharan,pascal_palette_invert
 
 def main():
@@ -42,13 +42,18 @@ def convert_mat2png(mat_files, output_path):
     help('Input directory does not contain any Matlab files!\n')
 
   l2c = pascal_palette_invert()
-  for mat in mat_files:
+  for ind,mat in enumerate(mat_files):
+    print(ind,mat)
     numpy_img = mat2png_hariharan(mat)
-    pil_img = PILImage.fromarray(numpy_img).convert("RGB")
-    for y in range(numpy_img.shape[0]):
-        for x in range(numpy_img.shape[1]):
-            c = l2c[numpy_img[y,x]]
-            pil_img.putpixel((x,y),c)
+    color = np.zeros( numpy_img.shape + (3,))
+    for l in l2c.keys():
+        color[numpy_img == l,:] = l2c[l]
+    pil_img = PILImage.fromarray(color.astype('uint8'))
+    #pil_img = PILImage.fromarray(numpy_img).convert("RGB")
+    #for y in range(numpy_img.shape[0]):
+    #    for x in range(numpy_img.shape[1]):
+    #        c = l2c[numpy_img[y,x]]
+    #        pil_img.putpixel((x,y),c)
     #pil_img = PILImage.fromarray(numpy_img)
     pil_img.save(os.path.join(output_path, modify_image_name(mat, 'png')))
 
