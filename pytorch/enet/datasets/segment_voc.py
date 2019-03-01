@@ -46,7 +46,7 @@ def convert_from_color_segmentation(label):
 
 
 class DatasetVOC(tudata.Dataset):
-    def __init__(self,voc_sdk_root,fortrain, len_resize = 512//2, hw_crop = (512//2,512//2)):
+    def __init__(self,voc_sdk_root,fortrain, len_resize = 512//4, hw_crop = (512//4,512//4)):
         super(DatasetVOC,self).__init__()
         self.data_pairs = []
         self.fortrain = fortrain
@@ -55,12 +55,14 @@ class DatasetVOC(tudata.Dataset):
         if fortrain:
             list_file = "ImageSets/Segmentation/trainval.txt"
         else:
-            list_file = "ImageSets/Segmentation/test.txt"
+            list_file = "ImageSets/Segmentation/val.txt"
         with open(os.path.join(voc_sdk_root,list_file),'rb') as f:
             for line in f:
                 line = line.strip()
                 if line == "":
                     continue
+                #if len(self.data_pairs) >= 100:
+                #    break
                 image_path = os.path.join(voc_sdk_root,"JPEGImages/{}.jpg".format(line))
                 label_path = os.path.join(voc_sdk_root,"SegmentationClass/{}.png".format(line))
                 self.data_pairs.append((image_path,label_path))
@@ -92,11 +94,18 @@ class DatasetVOC(tudata.Dataset):
             image = image.crop([0,0,w,h])
             label = label.crop([0,0,w,h])
         else:
-            #crop
-            dx = random.randint(0,W - w)
-            dy = random.randint(0,H - h)
-            image = image.crop([dx,dy, dx + w, dy +h])
-            label = label.crop([dx,dy,dx+w, dy + h])
+            #random crop
+            #dx = random.randint(0,W - w)
+            #dy = random.randint(0,H - h)
+            #image = image.crop([dx,dy, dx + w, dy + h])
+            #label = label.crop([dx,dy, dx + w, dy + h])
+            image = image.crop([0,0,w,h])
+            label = label.crop([0,0,w,h])
+
+            #flip
+	    if random.randint(0,100) > 50:
+		image = image.transpose(Image.FLIP_LEFT_RIGHT)
+		label = label.transpose(Image.FLIP_LEFT_RIGHT)
 
 
         image = np.asarray(image) / 255.0
